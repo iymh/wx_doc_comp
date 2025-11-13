@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>watonx.ai build test</title>
+  <style>
+    .retbox {
+      width: 95vw;
+      white-space: pre-wrap;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div id="app">
+    <v-app>
+      <v-app-bar>
+        <v-app-bar-title>watsonx.ai generate text</v-app-bar-title>
+      </v-app-bar>
+
+      <v-main>
+        <v-container>
+          <div class="">
+            <v-row class="align-center ma-3">
+              <v-col class="col">
+                <v-select
+                  label="Model for generate"
+                  variant="outlined"
+                  density="compact"
+                  :items="model_items"
+                  item-title="name"
+                  item-value="val"
+                  v-model="model_selected"
+                  return-object
+                  hide-details
+                ></v-select>
+              </v-col>
+              <v-col class="col-5">
+                <v-switch
+                  v-model="decoding_method"
+                  :label="`Decode Type: ${(decoding_method)?'sample':'greedy'}`"
+                ></v-switch>
+              </v-col>
+              <v-col class="col-3">
+                <v-switch
+                  v-model="stream"
+                  :label="`Stream: ${(stream)?'on':'off'}`"
+                ></v-switch>
+              </v-col>
+
+              <v-col class="col-4" v-if="decoding_method">
+                <v-slider
+                  v-model="temperature"
+                  label="Temperature"
+                  hide-details
+                  density="compact"
+                  :step="0.1"
+                  :max="2"
+                  :min="0"
+                  show-thumbs
+                ></v-slider>
+              </v-col>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-col class="col-10">
+                <v-slider
+                  v-model="min_max_tokens"
+                  label="min-max token size"
+                  hide-details
+                  density="compact"
+                  :step="10"
+                  :max="4096"
+                  :min="0"
+                  show-thumbs
+                ></v-slider>
+              </v-col>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <div class="flex-grow-1">
+                <v-textarea
+                  class="flex-grow-1 ml-2 mr-2"
+                  v-model="user_prompt"
+                  label="User Prompt"
+                  variant="outlined"
+                  clearable
+                  counter
+                  density="compact"
+                ></v-textarea>
+              </div>
+            </v-row>
+
+            <v-divider></v-divider>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-btn 
+                color="primary"
+                :loading="isLoading"
+                @click="onSendBtn()">
+                <v-icon start>mdi-send</v-icon>Text Generate
+              </v-btn>
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+
+          <div class="text-h5 text-primary">Result:</div>
+
+          <v-row class="justify-center">
+            <div class="flex-grow-1">
+              <div class="ma-5">
+                <div class="bg-accent text-h5">Generated Text</div>
+                <pre class="retbox">{{ generated_text }}</pre>
+              </div>
+            </div>
+          </v-row>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+
+  <!-- <script src="https://cdn.jsdelivr.net/npm/vue@3.x/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.x/dist/vuetify.js"></script> -->
+  <script type="importmap">
+  {
+    "imports": {
+      "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+      "vuetify": "https://unpkg.com/vuetify@3/dist/vuetify.esm.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    const LOCAL_URL = "./";
+
+    import { createApp } from 'vue';
+    import { createVuetify } from 'vuetify';
+    const vuetify = createVuetify();
+
+    // アプリケーション作成
+    const app = createApp({
+      data() {
+        return {
+          isLoading: false,
+
+          // Params
+          stream: true,
+          decoding_method: false, // true:sample, false:greedy
+          min_max_tokens: [10, 4096],
+          temperature: 1.0,
+          // random_seed: 1,
+
+          // input prompt
+          // system_prompt:"以下を英語に翻訳してください。\n\nJapanease: 10/30の値は？\nEnglish: What is the value of 10/30?",
+          user_prompt: "IBM watsonとは",
+          // user_prompt_samples:[
+          //   "10/30の値は？","一番値の大きい日は？","一番値の小さい日は？",
+          // ],
+          model_items: [
+            {name:"llama-4-maverick-17b-128e", val:"meta-llama/llama-4-maverick-17b-128e-instruct-fp8", class:"2"},
+            {name:"llama-3-3-70b", val:"meta-llama/llama-3-3-70b-instruct", class:"2"},
+            {name:"llama-3-405b", val:"meta-llama/llama-3-405b-instruct", class:"2"},
+            // {name:"mixtral", val:"mistralai/mixtral-8x7b-instruct-v01", class:"2"},
+            // {name:"mistral-large", val:"mistralai/mistral-large", class:"3"},
+          ],
+          model_selected: {},
+
+          // Results
+          generated_text: ""
+        }
+      },
+
+      watch: {
+      },
+
+      computed: {
+      },
+
+      methods: {
+        async sendRequest() {
+          this.generated_text = "";
+
+          let url = (this.stream) ? `${LOCAL_URL}stream` : `${LOCAL_URL}gen`
+
+          let params = {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            method: "POST"
+          };
+
+          let options = {
+            "modelname": this.model_selected.val,
+            "prompt": this.user_prompt,
+            "decoding_method": (this.decoding_method) ? "sample":"greedy",
+            "min_new_tokens": this.min_max_tokens[0],
+            "max_new_tokens": this.min_max_tokens[1]
+          };
+          console.log(options);
+
+          // send request
+          params.body = JSON.stringify(options);
+
+          // console.log("fetch start");
+          this.isLoading = true;
+          let res = await fetch(`${url}`, params)
+          this.isLoading = false;
+          // console.log("fetch end", res);
+          if (!res.ok) {
+            console.error(`status = ${res.status}, statusText = ${res.statusText}`);
+            return false;
+          } else {
+            if (this.stream) {
+              // Streaming
+              const reader = res.body.getReader();
+              const decoder = new TextDecoder('utf-8');
+              while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                      console.log('ストリームが終了しました');
+                      break;
+                  }
+                  const chunk = decoder.decode(value);
+                  this.generated_text += chunk;
+              }
+            } else {
+              // Sync
+              const jsondata = await res.json();
+              console.log("jsondata : " + JSON.stringify(jsondata));
+              this.generated_text = jsondata;
+            }
+          }
+          return true;
+        },
+
+        async onSendBtn() {
+          this.generated_text = "";
+          this.sendRequest();
+        },
+      },
+      mounted() {
+        console.log("vue mounted.");
+
+        // init Select box
+        this.model_selected = this.model_items[0];
+      }
+    });
+
+    // Vuetifyの使用
+    app.use(vuetify);
+    
+    // アプリケーションのマウント
+    app.mount('#app');
+
+  </script>
+</body>
+
+</html>

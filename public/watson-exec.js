@@ -166,6 +166,7 @@ export class WatsonAPIs {
           try {
             ai_result = JSON.parse(extjson_str);
           } catch (e) {
+            console.error(e);
             ai_result = { judge: 'Error', reason: 'AIの応答形式が不正です', score: 0 };
           }
         }

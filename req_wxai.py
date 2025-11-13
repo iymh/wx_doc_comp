@@ -42,7 +42,7 @@ class Params(BaseModel):
     # top_k: int = 3
     # temperature: float = 0.05
     # random_seed: int = 1
-    stop_sequences: list[str]
+    # stop_sequences: list[str]
 
 def setLlmChain(params:Params):
     prms = {
