@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Function Search</title>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+    .wdt2 {
+      width: 2rem;
+    }
+    .wdt5 {
+      width: 5rem;
+    }
+    .wdt10 {
+      width: 10rem;
+    }
+    .wdt12 {
+      width: 12rem;
+    }
+    .ws-preline {
+      white-space: pre-line;
+    }
+
+    .hide {
+      display: none;
+    }
+
+    /* for highlight in discovery result. */
+    em {
+      font-weight: bold;
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <v-app>
+      <v-app-bar app>
+        <v-app-bar-title>ドキュメント文言検索</v-app-bar-title>
+        <v-spacer></v-spacer>
+      </v-app-bar>
+
+      <!-- Toast Component -->
+      <v-snackbar
+        v-model="toast.show"
+        bottom
+        multi-line
+        :timeout="toast.timeout"
+        :color="toast.type"
+        @click="toast.show = false">
+        <div class="rw">{{ toast.text }}</div>
+      </v-snackbar>
+
+      <!-- Discovery Options Dialog -->
+      <v-dialog v-model="dc_param_dialog">
+        <v-card class="">
+          <v-card-title>
+            <span class="text-h5">Query Parameters</span>
+          </v-card-title>
+          <v-card-text class="flex-grow-1">
+            <v-textarea
+              v-model="dc_paramjson"
+              label="Request Params"
+              outlined
+              rows="5"
+            ></v-textarea>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="secondary"
+              @click="dc_param_dialog=false">
+              Cancel
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-main>
+        <v-container>
+
+          <v-divider></v-divider>
+          <div class="ma-2">
+            <v-row class="justify-center align-center ma-3">
+              <v-combobox
+                class="flex-grow-1 ma_lr_1rem ma_tp_05rem"
+                v-model="dc_inputnlq"
+                :items="dc_inputnlq_items"
+                label="検索する機能"
+                outlined
+                clearable
+                counter
+                dense
+                rows="1"
+                ref="nlq_combobox"
+                @update:search-input="handleSearchInput"
+              ></v-combobox>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-select
+                label="Collections"
+                outlined
+                dense
+                :items="dc_collections"
+                item-text="name"
+                item-value="collection_id"
+                v-model="dc_collections_selected"
+                return-object
+                hide-details
+              ></v-select>
+                <!-- multiple -->
+
+              <v-btn 
+                color="primary"
+                elevation="1"
+                rounded
+                @click="sendQuery()">
+                <v-icon>mdi-card-search-outline</v-icon>
+              </v-btn>
+
+              <v-btn color="primary"
+                icon elevation="1"
+                @click="dc_param_dialog=true">
+                <v-icon>mdi-code-json</v-icon>
+              </v-btn>
+
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+          <v-row class="justify-space-between" style="background-color: lavender">
+            <div class="ma-2 text-h5 primary--text">AI検索結果:</div>
+            <v-btn 
+              class="ma-2"
+              color="warning" rounded
+              :loading="llmLoading"
+              @click="onSendAIJudgeBtn()">
+              <v-icon>mdi-robot</v-icon>
+            </v-btn>
+          </v-row>
+          <v-row class="justify-center">
+            <div class="flex-grow-1">
+                <v-data-table
+                  :items = "dc_outputjsons"
+                  :loading = "dc_tbl_loading"
+                  disable-pagination
+                  disable-sort
+                  :items-per-page="100"
+                  no-data-text="データがありません"
+                  hide-default-header
+                  hide-default-footer
+                  fixed
+                >
+                  <template v-slot:[`item`]="{ item }">
+                    <div class="ma-2 elevation-3">
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">要件</div>
+                        <div class="flex-grow-1" v-if="item.要件">{{ item.要件 }}</div>
+                        <!-- <div class="wdt10 success text-center" v-if="item.result_metadata.confidence">検索スコア: {{ `${(item.result_metadata.confidence *100).toFixed(1)}` }}</div> -->
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">回答</div>
+                        <div class="flex-glow-1" v-if="item.回答">{{ item.回答 }}</div>
+                      </div>
+
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">備考／補足</div>
+                        <div class="flex-glow-1" v-if="item['備考／補足']">{{ item['備考／補足'] }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">変更区分</div>
+                        <div class="flex-glow-1" v-if="item.変更区分">{{ item.変更区分 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">意見</div>
+                        <div class="flex-glow-1" v-if="item.意見">{{ item.意見 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">変更後要件</div>
+                        <div class="flex-glow-1" v-if="item.変更後要件">{{ item.変更後要件 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">Sier向けコメント</div>
+                        <div class="flex-glow-1" v-if="item.Sier向けコメント">{{ item.Sier向けコメント }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">工数</div>
+                        <div class="flex-glow-1" v-if="item.工数">{{ item.工数 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">社内向けコメント</div>
+                        <div class="flex-glow-1" v-if="item.社内向けコメント">{{ item.社内向けコメント }}</div>
+                      </div>
+
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">カテゴリ</div>
+                        <div class="flex-glow-1" v-if="item.カテゴリ">{{ item.カテゴリ }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">システム名</div>
+                        <div class="flex-glow-1" v-if="item.システム名">{{ item.システム名 }}</div>
+                      </div>
+
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">ファイル名</div>
+                        <div class="flex-glow-1" v-if="item.ファイル名">{{ item.ファイル名 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">シート名</div>
+                        <div class="flex-glow-1" v-if="item.シート名">{{ item.シート名 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 info--text">行番号</div>
+                        <div class="flex-glow-1" v-if="item.id">{{ item.id }}</div>
+                      </div>
+
+                      <v-divider></v-divider>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 warning--text">judge</div>
+                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.judge">{{ item.ai_result.judge }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 warning--text">reason</div>
+                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.reason">{{ item.ai_result.reason }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 warning--text">score</div>
+                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.score>=0 && item.ai_result.score<=100">{{ item.ai_result.score }}</div>
+                      </div>
+
+                    </div>
+                  </template>
+                </v-data-table>
+            </div>
+          </v-row>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+
+  <script type="module">
+    // WatsonAPIsクラスを外部モジュールからインポート
+    import { WatsonAPIs } from './watson-exec.js';
+
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+
+      data:() => {
+        // WatsonAPIsのインスタンスを作成
+        const watsonAPIs = new WatsonAPIs();
+
+        return {
+          // --- サービスインスタンス ---
+          watsonAPIs: watsonAPIs,
+
+          // --- コンポーネントの状態 ---
+          toast:{ show: false, timeout: 5000, type: "primary", text:"" },
+          dc_param_dialog: false,
+          dc_tbl_loading: false,
+          llmLoading: false,
+          debounceTimer: null, // デバウンス処理用のタイマー
+
+          // --- UIと連動するデータ ---
+          dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
+          dc_collections: [],
+          dc_collections_selected: [],
+          dc_inputnlq: "",
+          dc_inputnlq_items:[],
+          dc_outputjsons: [],
+          wx_result: {},
+        }
+      },
+
+      watch: {
+        dc_collections_selected: function(cid) {
+          let param = JSON.parse(this.dc_paramjson);
+
+          // enable multiple collections
+          //param.collection_ids = cids.map(c => c.collection_id);
+          param.collection_ids = [cid.collection_id]
+          
+          this.dc_paramjson = JSON.stringify(param, null, 2);
+        },
+      },
+
+      methods: {
+        handleSearchInput(searchInput) {
+          // searchInputがnullの場合（クリアボタン押下時など）を考慮
+          const newQuery = searchInput || '';
+          
+          // 既存のタイマーをクリア
+          clearTimeout(this.debounceTimer);
+
+          this.dc_inputnlq = newQuery;
+          
+          // 入力値がある場合のみタイマーを設定
+          if (newQuery) {
+            this.debounceTimer = setTimeout(() => {
+              this.sendAutoComp();
+            }, 500); // 500ミリ秒後に入力値が変更されなければsendAutoCompを実行
+          }
+        },
+
+        showToast(msg) {
+          this.toast.text = msg;
+          this.toast.show = true;
+        },
+
+        async listCollections(showtoast) {
+          const collections = await this.watsonAPIs.fetchCollections();
+          if (collections) {
+            this.dc_collections = collections;
+            if (showtoast) this.showToast("コレクションの取得が完了しました");
+          } else {
+            this.dc_collections = [];
+            if (showtoast) this.showToast("コレクションの取得が失敗しました");
+          }
+        },
+
+        async sendQuery(showtoast) {
+          let currentParams;
+          try {
+            currentParams = JSON.parse(this.dc_paramjson);
+          } catch(e) {
+            this.showToast("Query ParametersのJSON形式が正しくありません。");
+            return;
+          }
+          this.dc_tbl_loading = true;
+          try {
+            const resultJson = await this.watsonAPIs.executeQuery(this.dc_inputnlq, currentParams);
+            console.log(resultJson);
+            if (resultJson) {
+              this.setResultTable(resultJson);
+              if (showtoast) this.showToast("データの取得が完了しました");
+            } else {
+              if (showtoast) this.showToast("データの取得が失敗しました");
+            }
+          } finally {
+            this.dc_tbl_loading = false;
+          }
+        },
+
+        async sendAutoComp() {
+          let currentParams;
+          try {
+            currentParams = JSON.parse(this.dc_paramjson);
+          } catch(e) {
+            this.showToast("AutoComplete ParametersのJSON形式が正しくありません。");
+            return;
+          }
+
+          try {
+            const resultJson = await this.watsonAPIs.executeAutocomp(this.dc_inputnlq, currentParams);
+            console.log(resultJson);
+            if (resultJson && resultJson.completions) {
+              this.dc_inputnlq_items = resultJson.completions;
+            } else {
+            }
+          } finally {
+          }
+        },
+
+        setResultTable(json) {
+          this.dc_outputjsons = (json && json.results) ? json.results : [];
+        },
+
+        async onSendAIJudgeBtn() {
+          this.llmLoading = true;
+          try {
+            await this.watsonAPIs.processAIJudgements(
+              this.dc_outputjsons,
+              this.dc_inputnlq,
+              (index, updatedItem) => { // onProgressコールバック
+                this.$set(this.dc_outputjsons, index, updatedItem);
+              }
+            );
+            this.showToast("AIによる判定が完了しました。");
+          } catch (error) {
+            this.showToast("AI判定中にエラーが発生しました。");
+          } finally {
+            this.llmLoading = false;
+          }
+        },
+        
+        async init() {
+          await this.listCollections();
+          // enable multiple collections
+          // this.dc_collections_selected = [this.dc_collections[0]];
+          this.dc_collections_selected = this.dc_collections[0];
+
+          this.dc_inputnlq = this.dc_inputnlq_items[0];
+        }
+      },
+
+      mounted() {
+        this.init();
+      }
+    })
+  </script>
+
+
+</body>
+
+</html>
