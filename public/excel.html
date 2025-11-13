@@ -6,7 +6,7 @@
 
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet"/>
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet"/>
-    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@3.x/dist/vuetify.min.css" rel="stylesheet"/>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>仕様書検索</title>
@@ -111,15 +111,15 @@
         </v-snackbar>
 
         <v-main>
-          <v-container fluid　class="">
+          <v-container fluid class="">
             <!-- コレクション読み込みセクション -->
             <v-card class="ma-2 pa-4">
               <v-select
                 label="Collections"
-                outlined
-                dense
+                variant="outlined"
+                density="compact"
                 :items="dc_collections"
-                item-text="name"
+                item-title="name"
                 item-value="collection_id"
                 v-model="dc_collections_selected"
                 return-object
@@ -137,7 +137,7 @@
                   placeholder="ここにファイルをドロップすることもできます"
                   accept=".xlsx, .xls, .json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/json"
                   hide-details
-                  @change="onFileChange"
+                  @update:model-value="onFileChange"
                   :loading="isLoading"
                 ></v-file-input>
               </div>
@@ -158,11 +158,11 @@
                       :disabled="selected_rows.length === 0"
                       @click="runOnSelected"
                     >
-                      <v-icon left>mdi-checkbox-marked-outline</v-icon>
+                      <v-icon start>mdi-checkbox-marked-outline</v-icon>
                       選択行を判定 ({{ selected_rows.length }}件)
                     </v-btn>
-                    <v-btn color="orange" dark @click="runOnAll">
-                      <v-icon left>mdi-robot-happy-outline</v-icon>
+                    <v-btn color="orange" variant="elevated" @click="runOnAll">
+                      <v-icon start>mdi-robot-happy-outline</v-icon>
                       全行を判定 ({{ import_datas.length }}件)
                     </v-btn>
                   </div>
@@ -177,17 +177,12 @@
                         stream
                         color="blue-grey"
                       >
-                        <strong
-                          >{{ Math.ceil(batchProgress) }}% ({{
-                            processedCount
-                          }}
-                          / {{ totalToProcess }})</strong
-                        >
+                        <strong>{{ Math.ceil(batchProgress) }}% ({{ processedCount }} / {{ totalToProcess }})</strong>
                       </v-progress-linear>
                     </v-col>
                     <v-col cols="4" class="d-flex justify-end">
-                      <v-btn color="red" dark @click="cancelRun">
-                        <v-icon left>mdi-cancel</v-icon>
+                      <v-btn color="red" variant="elevated" @click="cancelRun">
+                        <v-icon start>mdi-cancel</v-icon>
                         中断
                       </v-btn>
                     </v-col>
@@ -344,13 +339,79 @@
       </v-app>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+        "vuetify": "https://unpkg.com/vuetify@3/dist/vuetify.esm.js"
+      }
+    }
+    </script>
+    <!-- テンプレート要素を追加 -->
+    <script type="text/x-template" id="wd-item-template">
+      <div class="pr-box">
+        <!-- Default Display -->
+        <template v-if="displayType === 'default'">
+          <div class="pr-item color_pr1 summary_box" v-if="item.wditem1">{{ item.wditem1[field] }}</div>
+          <div class="pr-item color_pr2 summary_box" v-if="item.wditem2">{{ item.wditem2[field] }}</div>
+          <div class="pr-item color_pr3 summary_box" v-if="item.wditem3">{{ item.wditem3[field] }}</div>
+        </template>
+
+        <!-- Judge Display -->
+        <template v-if="displayType === 'judge'">
+          <div class="pr-item color_pr1">
+            <v-progress-circular v-if="item.wditem1 && item.wditem1.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
+            <div v-else-if="item.wditem1 && item.wditem1.ai_result" :color="getChipColor(item.wditem1.ai_result.judge)">
+                {{ item.wditem1.ai_result.judge }}
+            </div>
+          </div>
+          <div class="pr-item color_pr2">
+            <v-progress-circular v-if="item.wditem2 && item.wditem2.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
+            <div v-if="item.wditem2 && item.wditem2.ai_result" :color="getChipColor(item.wditem2.ai_result.judge)">
+                {{ item.wditem2.ai_result.judge }}
+            </div>
+          </div>
+          <div class="pr-item color_pr3">
+            <v-progress-circular v-if="item.wditem3 && item.wditem3.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
+            <div v-if="item.wditem3 && item.wditem3.ai_result" :color="getChipColor(item.wditem3.ai_result.judge)">
+                {{ item.wditem3.ai_result.judge }}
+            </div>
+          </div>
+        </template>
+
+        <!-- Score Display -->
+        <template v-if="displayType === 'score'">
+          <div class="pr-item color_pr1">
+            <span v-if="item.wditem1 && item.wditem1.ai_result && item.wditem1.ai_result.score !== undefined">{{ item.wditem1.ai_result.score }}</span>
+          </div>
+          <div class="pr-item color_pr2">
+            <span v-if="item.wditem2 && item.wditem2.ai_result && item.wditem2.ai_result.score !== undefined">{{ item.wditem2.ai_result.score }}</span>
+          </div>
+          <div class="pr-item color_pr3">
+            <span v-if="item.wditem3 && item.wditem3.ai_result && item.wditem3.ai_result.score !== undefined">{{ item.wditem3.ai_result.score }}</span>
+          </div>
+        </template>
+
+        <!-- Reason Display -->
+        <template v-if="displayType === 'reason'">
+          <div class="pr-item color_pr1 summary_box" v-if="item.wditem1 && item.wditem1.ai_result">{{ item.wditem1.ai_result.reason }}</div>
+          <div class="pr-item color_pr2 summary_box" v-if="item.wditem2 && item.wditem2.ai_result">{{ item.wditem2.ai_result.reason }}</div>
+          <div class="pr-item color_pr3 summary_box" v-if="item.wditem3 && item.wditem3.ai_result">{{ item.wditem3.ai_result.reason }}</div>
+        </template>
+      </div>
+    </script>
 
     <script type="module">
       // WatsonAPIsクラスを外部モジュールからインポート
-      import { WatsonAPIs } from './watson-exec.js'
+      import { WatsonAPIs } from './watson-exec.js';
+      import { createApp } from 'vue';
+      import { createVuetify, components, directives } from 'vuetify';
+
+      const vuetify = createVuetify({
+        components,
+        directives
+      });
 
       const WdItemCell = {
         props: {
@@ -368,121 +429,68 @@
               return 'grey';
           }
         },
-        template: `
-        <div class="pr-box">
-          <!-- Default Display -->
-          <template v-if="displayType === 'default'">
-            <div class="pr-item color_pr1 summary_box" v-if="item.wditem1">{{ item.wditem1[field] }}</div>
-            <div class="pr-item color_pr2 summary_box" v-if="item.wditem2">{{ item.wditem2[field] }}</div>
-            <div class="pr-item color_pr3 summary_box" v-if="item.wditem3">{{ item.wditem3[field] }}</div>
-          </template>
-
-          <!-- Judge Display -->
-          <template v-if="displayType === 'judge'">
-            <div class="pr-item color_pr1">
-              <v-progress-circular v-if="item.wditem1 && item.wditem1.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-              <div v-else-if="item.wditem1 && item.wditem1.ai_result" :color="getChipColor(item.wditem1.ai_result.judge)">
-                  {{ item.wditem1.ai_result.judge }}
-              </div>
-            </div>
-            <div class="pr-item color_pr2">
-              <v-progress-circular v-if="item.wditem2 && item.wditem2.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-              <div v-if="item.wditem2 && item.wditem2.ai_result" :color="getChipColor(item.wditem2.ai_result.judge)">
-                  {{ item.wditem2.ai_result.judge }}
-              </div>
-            </div>
-            <div class="pr-item color_pr3">
-              <v-progress-circular v-if="item.wditem3 && item.wditem3.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-              <div v-if="item.wditem3 && item.wditem3.ai_result" :color="getChipColor(item.wditem3.ai_result.judge)">
-                  {{ item.wditem3.ai_result.judge }}
-              </div>
-            </div>
-          </template>
-
-          <!-- Score Display -->
-          <template v-if="displayType === 'score'">
-            <div class="pr-item color_pr1">
-              <span v-if="item.wditem1 && item.wditem1.ai_result && typeof item.wditem1.ai_result.score !== 'undefined'">{{ item.wditem1.ai_result.score }}</span>
-            </div>
-            <div class="pr-item color_pr2">
-              <span v-if="item.wditem2 && item.wditem2.ai_result && typeof item.wditem2.ai_result.score !== 'undefined'">{{ item.wditem2.ai_result.score }}</span>
-            </div>
-            <div class="pr-item color_pr3">
-              <span v-if="item.wditem3 && item.wditem3.ai_result && typeof item.wditem3.ai_result.score !== 'undefined'">{{ item.wditem3.ai_result.score }}</span>
-            </div>
-          </template>
-
-          <!-- Reason Display -->
-          <template v-if="displayType === 'reason'">
-            <div class="pr-item color_pr1 summary_box" v-if="item.wditem1 && item.wditem1.ai_result">{{ item.wditem1.ai_result.reason }}</div>
-            <div class="pr-item color_pr2 summary_box" v-if="item.wditem2 && item.wditem2.ai_result">{{ item.wditem2.ai_result.reason }}</div>
-            <div class="pr-item color_pr3 summary_box" v-if="item.wditem3 && item.wditem3.ai_result">{{ item.wditem3.ai_result.reason }}</div>
-          </template>
-        </div>
-        `
+        template: '#wd-item-template'
       };
 
-      new Vue({
-        el: '#app',
-        vuetify: new Vuetify(),
+      const XLSX = window.XLSX;
 
+      // WatsonAPIsのインスタンスを作成
+      const watsonAPIs = new WatsonAPIs();
+
+      const app = createApp({
         components: {
           'wd-item-cell': WdItemCell
         },
 
-        data: () => {
-          // WatsonAPIsのインスタンスを作成
-          const watsonAPIs = new WatsonAPIs()
-          return {
-            // --- サービスインスタンス ---
-            watsonAPIs: watsonAPIs,
+        data:() =>({
+          // --- サービスインスタンス ---
+          watsonAPIs: watsonAPIs,
 
-            // --- コンポーネントの状態 ---
-            toast: { show: false, timeout: 4000, type: 'primary', text: '' },
-            isLoading: false,
-            isBatchRunning: false,
-            isCancelled: false,
-            batchProgress: 0,
-            processedCount: 0,
-            totalToProcess: 0,
+          // --- コンポーネントの状態 ---
+          toast: { show: false, timeout: 4000, type: 'primary', text: '' },
+          isLoading: false,
+          isBatchRunning: false,
+          isCancelled: false,
+          batchProgress: 0,
+          processedCount: 0,
+          totalToProcess: 0,
 
-            // --- UIと連動するデータ ---
-            dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
-            dc_collections: [],
-            dc_collections_selected: [],
+          // --- UIと連動するデータ ---
+          dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
+          dc_collections: [],
+          dc_collections_selected: [],
 
-            is_judge: true,
+          is_judge: true,
 
-            import_file: null,
-            import_filename: '',
-            import_count: 0,
-            import_datas: [],
-            selected_rows: [],
-            import_tbl_headers:[
-              { text:'No', value:'no' },
-              { text:'category', value:'category', style:{width:"6rem"} },
-              { text:'検索要件', value:'検索要件', style:{width:"12rem"}, cellClass:"" },
-              { text:'', value:'priority', style:{width:"6rem"} },
-              { text:'AI判定', value:'wditem_judge', style:{width:"4rem"}, class: 'ai-column' },
-              { text:'AIスコア', value:'wditem_score', style:{width:"4rem"}, class: 'ai-column' },
-              { text:'AI理由', value:'wditem_reason', style:{width:"15rem"}, class: 'ai-column' },
-              { text:'要件', value:'要件', style:{width:"12rem"}, cellClass:"" },
-              { text:'回答', value:'回答', style:{width:"4rem"} },
-              { text:'備考／補足', value:'備考／補足', style:{width:"6rem"} },
-              { text:'変更区分', value:'変更区分' },
-              { text:'意見', value:'意見' },
-              { text:'変更後要件', value:'変更後要件' },
-              { text:'Ｓｉｅｒ向けコメント', value:'Ｓｉｅｒ向けコメント', style:{width:"5rem"} },
-              { text:'工数', value:'工数' },
-              { text:'社内向けコメント', value:'社内向けコメント', style:{width:"5rem"} },
-              { text:'id', value:'id', style:{width:"4rem"}},
-              { text:'カテゴリ', value:'カテゴリ', style:{width:"6rem"}  },
-              { text:'システム名', value:'システム名' },
-              { text:'シート名', value:'シート名', style:{width:"6rem"} },
-              { text:'ファイル名', value:'ファイル名', style:{width:"6rem"}  },
-            ],
-          }
-        },
+          import_file: null,
+          import_filename: '',
+          import_count: 0,
+          import_datas: [],
+          selected_rows: [],
+          import_tbl_headers:[
+            { text:'No', value:'no' },
+            { text:'category', value:'category', style:{width:"6rem"} },
+            { text:'検索要件', value:'検索要件', style:{width:"12rem"}, cellClass:"" },
+            { text:'', value:'priority', style:{width:"6rem"} },
+            { text:'AI判定', value:'wditem_judge', style:{width:"4rem"}, class: 'ai-column' },
+            { text:'AIスコア', value:'wditem_score', style:{width:"4rem"}, class: 'ai-column' },
+            { text:'AI理由', value:'wditem_reason', style:{width:"15rem"}, class: 'ai-column' },
+            { text:'要件', value:'要件', style:{width:"12rem"}, cellClass:"" },
+            { text:'回答', value:'回答', style:{width:"4rem"} },
+            { text:'備考／補足', value:'備考／補足', style:{width:"6rem"} },
+            { text:'変更区分', value:'変更区分' },
+            { text:'意見', value:'意見' },
+            { text:'変更後要件', value:'変更後要件' },
+            { text:'Ｓｉｅｒ向けコメント', value:'Ｓｉｅｒ向けコメント', style:{width:"5rem"} },
+            { text:'工数', value:'工数' },
+            { text:'社内向けコメント', value:'社内向けコメント', style:{width:"5rem"} },
+            { text:'id', value:'id', style:{width:"4rem"}},
+            { text:'カテゴリ', value:'カテゴリ', style:{width:"6rem"}  },
+            { text:'システム名', value:'システム名' },
+            { text:'シート名', value:'シート名', style:{width:"6rem"} },
+            { text:'ファイル名', value:'ファイル名', style:{width:"6rem"}  },
+          ]
+        }),
 
         watch: {
           dc_collections_selected: function (cid) {
@@ -620,7 +628,7 @@
                 reader.readAsArrayBuffer(file)
                 reader.onload = event => resolve(event.target?.result)
                 reader.onerror = event =>
-                  reject(new Error('File reading error'))
+                  reject(new Error('File reading error', event))
               } catch (error) {
                 reject(error)
               }
@@ -661,13 +669,13 @@
                 try {
                   const jsonData = JSON.parse(event.target.result)
                   resolve(jsonData)
-                } catch (e) {
-                  reject(new Error('JSONの解析に失敗しました。'))
+                } catch (event) {
+                  reject(new Error('JSONの解析に失敗しました。', event))
                 }
               }
               reader.onerror = event => {
                 reject(
-                  new Error('ファイルの読み込み中にエラーが発生しました。')
+                  new Error('ファイルの読み込み中にエラーが発生しました。', event)
                 )
               }
               reader.readAsText(file)
@@ -699,7 +707,8 @@
                 break
               }
 
-              this.$set(item, 'isLoading', true)
+              // Vue 3ではオブジェクトプロパティへの直接代入が可能
+              item.isLoading = true;
 
               try {
                 if (!item.wditem1?.id) {
@@ -728,11 +737,8 @@
                       const itemIndex = index + 1
                       const wdItemKey = `wditem${itemIndex}`
                       if (updatedDiscoveryItem)
-                        this.$set(
-                          item,
-                          wdItemKey,
-                          {...item[wdItemKey], ...updatedDiscoveryItem,}
-                        )
+                        // Vue 3では直接代入が可能
+                        item[wdItemKey] = {...item[wdItemKey], ...updatedDiscoveryItem};
                     }
                   )
                 }
@@ -742,9 +748,11 @@
                   ai_result: { judge: 'エラー', reason: error.message },
                   isLoading: false
                 }
-                this.$set(item, 'wditem1', errorResult)
+                // Vue 3では直接代入が可能
+                item.wditem1 = errorResult;
               } finally {
-                this.$set(item, 'isLoading', false)
+                // Vue 3では直接代入が可能
+                item.isLoading = false;
                 this.processedCount++
                 this.batchProgress =
                   (this.processedCount / this.totalToProcess) * 100
@@ -869,9 +877,12 @@
               return
             }
             try {
+              // JSONファイル出力前に、isLoadingプロパティを削除したオブジェクトのコピーを作成する
               const dataToExport = this.import_datas.map(item => {
-                const { isLoading, ...rest } = item
-                return rest
+                // オブジェクトからisLoadingプロパティを除外
+                // isLoadingはUI上の一時的な状態を表すフラグで、JSONとして保存する必要がない
+                const { isLoading, ...cleanedItem } = item
+                return cleanedItem // isLoadingを除いた残りのプロパティを含むオブジェクトを返す
               })
               const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
                 type: 'application/json'
@@ -907,7 +918,13 @@
           console.log('Vue app mounted.')
           this.init()
         }
-      })
+      });
+
+      // Vuetifyの使用
+      app.use(vuetify);
+      
+      // アプリケーションのマウント
+      app.mount('#app');
     </script>
   </body>
 </html>

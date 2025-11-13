@@ -7,7 +7,7 @@
 
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3.x/dist/vuetify.min.css" rel="stylesheet">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Function Search</title>
@@ -46,18 +46,12 @@
 <body>
   <div id="app" v-cloak>
     <v-app>
-      <v-app-bar app>
-        <v-app-bar-title>ドキュメント文言検索</v-app-bar-title>
-        <v-spacer></v-spacer>
-      </v-app-bar>
-
       <!-- Toast Component -->
       <v-snackbar
         v-model="toast.show"
-        bottom
-        multi-line
         :timeout="toast.timeout"
         :color="toast.type"
+        location="bottom"
         @click="toast.show = false">
         <div class="rw">{{ toast.text }}</div>
       </v-snackbar>
@@ -72,7 +66,7 @@
             <v-textarea
               v-model="dc_paramjson"
               label="Request Params"
-              outlined
+              variant="outlined"
               rows="5"
             ></v-textarea>
           </v-card-text>
@@ -89,7 +83,7 @@
       <v-main>
         <v-container>
 
-          <v-divider></v-divider>
+          <!-- <v-divider></v-divider> -->
           <div class="ma-2">
             <v-row class="justify-center align-center ma-3">
               <v-combobox
@@ -97,10 +91,10 @@
                 v-model="dc_inputnlq"
                 :items="dc_inputnlq_items"
                 label="検索する機能"
-                outlined
+                variant="outlined"
                 clearable
                 counter
-                dense
+                density="compact"
                 rows="1"
                 ref="nlq_combobox"
                 @update:search-input="handleSearchInput"
@@ -110,10 +104,10 @@
             <v-row class="justify-center align-center ma-3">
               <v-select
                 label="Collections"
-                outlined
-                dense
+                variant="outlined"
+                density="compact"
                 :items="dc_collections"
-                item-text="name"
+                item-title="name"
                 item-value="collection_id"
                 v-model="dc_collections_selected"
                 return-object
@@ -123,8 +117,7 @@
 
               <v-btn 
                 color="primary"
-                elevation="1"
-                rounded
+                icon elevation="1"
                 @click="sendQuery()">
                 <v-icon>mdi-card-search-outline</v-icon>
               </v-btn>
@@ -138,12 +131,13 @@
             </v-row>
           </div>
 
-          <v-divider></v-divider>
-          <v-row class="justify-space-between" style="background-color: lavender">
-            <div class="ma-2 text-h5 primary--text">AI検索結果:</div>
+          <!-- <v-divider></v-divider> -->
+          <v-row class="justify-space-between align-center" style="background-color: lavender">
+            <div class="ma-2 text-h5 text-primary">AI検索結果:</div>
             <v-btn 
               class="ma-2"
-              color="warning" rounded
+              color="warning"
+              icon elevation="1"
               :loading="llmLoading"
               @click="onSendAIJudgeBtn()">
               <v-icon>mdi-robot</v-icon>
@@ -152,91 +146,89 @@
           <v-row class="justify-center">
             <div class="flex-grow-1">
                 <v-data-table
-                  :items = "dc_outputjsons"
-                  :loading = "dc_tbl_loading"
+                  :items="dc_outputjsons"
+                  :loading="dc_tbl_loading"
                   disable-pagination
                   disable-sort
                   :items-per-page="100"
                   no-data-text="データがありません"
                   hide-default-header
                   hide-default-footer
-                  fixed
                 >
-                  <template v-slot:[`item`]="{ item }">
+                  <template v-slot:item="{ item }">
                     <div class="ma-2 elevation-3">
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">要件</div>
+                        <div class="wdt10 text-info">要件</div>
                         <div class="flex-grow-1" v-if="item.要件">{{ item.要件 }}</div>
-                        <!-- <div class="wdt10 success text-center" v-if="item.result_metadata.confidence">検索スコア: {{ `${(item.result_metadata.confidence *100).toFixed(1)}` }}</div> -->
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">回答</div>
-                        <div class="flex-glow-1" v-if="item.回答">{{ item.回答 }}</div>
-                      </div>
-
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">備考／補足</div>
-                        <div class="flex-glow-1" v-if="item['備考／補足']">{{ item['備考／補足'] }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">変更区分</div>
-                        <div class="flex-glow-1" v-if="item.変更区分">{{ item.変更区分 }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">意見</div>
-                        <div class="flex-glow-1" v-if="item.意見">{{ item.意見 }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">変更後要件</div>
-                        <div class="flex-glow-1" v-if="item.変更後要件">{{ item.変更後要件 }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">Sier向けコメント</div>
-                        <div class="flex-glow-1" v-if="item.Sier向けコメント">{{ item.Sier向けコメント }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">工数</div>
-                        <div class="flex-glow-1" v-if="item.工数">{{ item.工数 }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">社内向けコメント</div>
-                        <div class="flex-glow-1" v-if="item.社内向けコメント">{{ item.社内向けコメント }}</div>
+                        <div class="wdt10 text-info">回答</div>
+                        <div class="flex-grow-1" v-if="item.回答">{{ item.回答 }}</div>
                       </div>
 
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">カテゴリ</div>
-                        <div class="flex-glow-1" v-if="item.カテゴリ">{{ item.カテゴリ }}</div>
+                        <div class="wdt10 text-info">備考／補足</div>
+                        <div class="flex-grow-1" v-if="item['備考／補足']">{{ item['備考／補足'] }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">システム名</div>
-                        <div class="flex-glow-1" v-if="item.システム名">{{ item.システム名 }}</div>
+                        <div class="wdt10 text-info">変更区分</div>
+                        <div class="flex-grow-1" v-if="item.変更区分">{{ item.変更区分 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">意見</div>
+                        <div class="flex-grow-1" v-if="item.意見">{{ item.意見 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">変更後要件</div>
+                        <div class="flex-grow-1" v-if="item.変更後要件">{{ item.変更後要件 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">Sier向けコメント</div>
+                        <div class="flex-grow-1" v-if="item.Sier向けコメント">{{ item.Sier向けコメント }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">工数</div>
+                        <div class="flex-grow-1" v-if="item.工数">{{ item.工数 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">社内向けコメント</div>
+                        <div class="flex-grow-1" v-if="item.社内向けコメント">{{ item.社内向けコメント }}</div>
                       </div>
 
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">ファイル名</div>
-                        <div class="flex-glow-1" v-if="item.ファイル名">{{ item.ファイル名 }}</div>
+                        <div class="wdt10 text-info">カテゴリ</div>
+                        <div class="flex-grow-1" v-if="item.カテゴリ">{{ item.カテゴリ }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">シート名</div>
-                        <div class="flex-glow-1" v-if="item.シート名">{{ item.シート名 }}</div>
+                        <div class="wdt10 text-info">システム名</div>
+                        <div class="flex-grow-1" v-if="item.システム名">{{ item.システム名 }}</div>
+                      </div>
+
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">ファイル名</div>
+                        <div class="flex-grow-1" v-if="item.ファイル名">{{ item.ファイル名 }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 info--text">行番号</div>
-                        <div class="flex-glow-1" v-if="item.id">{{ item.id }}</div>
+                        <div class="wdt10 text-info">シート名</div>
+                        <div class="flex-grow-1" v-if="item.シート名">{{ item.シート名 }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">行番号</div>
+                        <div class="flex-grow-1" v-if="item.id">{{ item.id }}</div>
                       </div>
 
                       <v-divider></v-divider>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 warning--text">judge</div>
-                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.judge">{{ item.ai_result.judge }}</div>
+                        <div class="wdt10 text-warning">judge</div>
+                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.judge">{{ item.ai_result.judge }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 warning--text">reason</div>
-                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.reason">{{ item.ai_result.reason }}</div>
+                        <div class="wdt10 text-warning">reason</div>
+                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.reason">{{ item.ai_result.reason }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 warning--text">score</div>
-                        <div class="flex-glow-1" v-if="item.ai_result && item.ai_result.score>=0 && item.ai_result.score<=100">{{ item.ai_result.score }}</div>
+                        <div class="wdt10 text-warning">score</div>
+                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.score>=0 && item.ai_result.score<=100">{{ item.ai_result.score }}</div>
                       </div>
 
                     </div>
@@ -250,18 +242,29 @@
     </v-app>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+      "vuetify": "https://unpkg.com/vuetify@3/dist/vuetify.esm.js"
+    }
+  }
+  </script>
 
   <script type="module">
     // WatsonAPIsクラスを外部モジュールからインポート
     import { WatsonAPIs } from './watson-exec.js';
 
-    new Vue({
-      el: '#app',
-      vuetify: new Vuetify(),
+    import { createApp } from 'vue';
+    import { createVuetify, components, directives } from 'vuetify';
 
-      data:() => {
+    const vuetify = createVuetify({
+      components,
+      directives
+    });
+
+    const app = createApp({
+      data() {
         // WatsonAPIsのインスタンスを作成
         const watsonAPIs = new WatsonAPIs();
 
@@ -337,7 +340,8 @@
           let currentParams;
           try {
             currentParams = JSON.parse(this.dc_paramjson);
-          } catch(e) {
+          } catch(err) {
+            console.error("JSONパース失敗:", err);
             this.showToast("Query ParametersのJSON形式が正しくありません。");
             return;
           }
@@ -360,7 +364,8 @@
           let currentParams;
           try {
             currentParams = JSON.parse(this.dc_paramjson);
-          } catch(e) {
+          } catch(err) {
+            console.error("JSONパース失敗:", err);
             this.showToast("AutoComplete ParametersのJSON形式が正しくありません。");
             return;
           }
@@ -370,9 +375,9 @@
             console.log(resultJson);
             if (resultJson && resultJson.completions) {
               this.dc_inputnlq_items = resultJson.completions;
-            } else {
             }
           } finally {
+            // 処理完了
           }
         },
 
@@ -387,11 +392,13 @@
               this.dc_outputjsons,
               this.dc_inputnlq,
               (index, updatedItem) => { // onProgressコールバック
-                this.$set(this.dc_outputjsons, index, updatedItem);
+                // Vue 3ではreactivity APIを使用するか、直接配列を操作します
+                this.dc_outputjsons[index] = updatedItem;
               }
             );
             this.showToast("AIによる判定が完了しました。");
-          } catch (error) {
+          } catch (err) {
+            console.error("AI判定エラー:", err);
             this.showToast("AI判定中にエラーが発生しました。");
           } finally {
             this.llmLoading = false;
@@ -400,10 +407,7 @@
         
         async init() {
           await this.listCollections();
-          // enable multiple collections
-          // this.dc_collections_selected = [this.dc_collections[0]];
           this.dc_collections_selected = this.dc_collections[0];
-
           this.dc_inputnlq = this.dc_inputnlq_items[0];
         }
       },
@@ -411,10 +415,13 @@
       mounted() {
         this.init();
       }
-    })
+    });
+
+    // Vuetifyの使用
+    app.use(vuetify);
+    
+    // アプリケーションのマウント
+    app.mount('#app');
   </script>
-
-
 </body>
-
 </html>
