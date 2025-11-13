@@ -1,0 +1,25 @@
+{
+  "name": "wx_doc_comp",
+  "version": "1.0.0",
+  "description": "## for IBM Buisiness Partner only",
+  "main": "eslint.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iymh/wx_doc_comp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iymh/wx_doc_comp/issues"
+  },
+  "homepage": "https://github.com/iymh/wx_doc_comp#readme",
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "eslint-plugin-html": "^8.1.3",
+    "globals": "^16.5.0"
+  }
+}

@@ -177,3 +177,5 @@ cython_debug/
 node_modules
 .DS_Store
 memo.md
+
+package-lock.json
