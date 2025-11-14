@@ -31,16 +31,23 @@
         top: 0;
         z-index: 2; /* Ensure it's above the content */
         background: #ffffff;
-        width: 3rem;
         padding-top: 0 !important;
         padding-bottom: 0 !important;
         padding-left: 5px !important;
         padding-right: 5px !important;
         line-height: 1.2; /* テキストが複数行になる場合を考慮 */
+        box-sizing: border-box;
       }
+      
+      /* チェックボックス列の幅を設定 */
+      .v-data-table > .v-table__wrapper > table > thead > tr > th.v-data-table__th > .v-checkbox {
+        min-width: 2rem;
+      }
+
       .v-data-table > .v-data-table__wrapper > table > tbody > tr > td {
         padding-left: 5px !important;
         padding-right: 5px !important;
+        box-sizing: border-box;
       }
 
       .text-center {
@@ -50,7 +57,10 @@
       .oy-box {
         max-height: 5rem;
         overflow-y: scroll;
+        overflow-x: auto;
         align-items: start !important;
+        white-space: pre-wrap;
+        text-overflow: ellipsis;
       }
 
       .summary_box {
@@ -165,6 +175,7 @@
                       <v-icon start>mdi-robot-happy-outline</v-icon>
                       全行を判定 ({{ import_datas.length }}件)
                     </v-btn>
+
                   </div>
                 </div>
                 <div v-else>
@@ -196,37 +207,51 @@
               <v-card-title class="primary--text">判定する要件一覧</v-card-title>
               <v-card-text class="">
                 <v-data-table
-                  v-model="selected_rows"
-                  show-select
-                  height="63vh"
-                  :headers="import_tbl_headers"
-                  :items="import_datas"
-                  :items-per-page="-1"
-                  no-data-text="データがありません"
-                  item-key="no"
-                  hide-default-footer
-                  fixed-header
-                  :hide-default-header="true">
+                   show-select
+                   height="63vh"
+                   :headers="import_tbl_headers"
+                   :items="import_datas"
+                   :items-per-page="-1"
+                   no-data-text="データがありません"
+                   item-key="no"
+                   hide-default-footer
+                   fixed-header
+                   :hide-default-header="false"
+                   ref="dataTable">
+
+                  <!-- ヘッダーチェックボックス -->
+                  <template v-slot:[`header.data-table-select`]="{ props, on }">
+                    <v-checkbox
+                      density="compact"
+                      hide-details
+                      :model-value="selected_rows.length === import_datas.length && import_datas.length > 0"
+                      :indeterminate="selected_rows.length > 0 && selected_rows.length < import_datas.length"
+                      @update:model-value="handleSelectAll"
+                    ></v-checkbox>
+                  </template>
+
                   <template v-slot:header="{ props, on }">
                     <thead>
                       <tr>
-                        <th class="text-center" style="width: 48px">
-                          <v-simple-checkbox
-                            :value="props.everyItem"
-                            :indeterminate="props.someItems && !props.everyItem"
-                            @input="on['toggle-select-all']"
-                          ></v-simple-checkbox>
-                        </th>
                         <th
-                          v-for="header in import_tbl_headers"
-                          :key="header.value"
-                          :class="header.class"
-                          :style="header.style"
-                        >
-                          {{ header.text }}
-                        </th>
+                             v-for="(header, index) in import_tbl_headers"
+                             :key="header.key"
+                             :class="header.class"
+                           >
+                             <div>{{ header.title }}</div>
+                           </th>
                       </tr>
                     </thead>
+                  </template>
+
+                  <!-- ボディのチェックボックスをカスタムスロットで実装 -->
+                  <template v-slot:[`item.data-table-select`]="{ item }">
+                    <v-checkbox
+                      density="compact"
+                      hide-details
+                      :model-value="item.selected"
+                      @update:model-value="toggleRowSelection(item, $event)"
+                    ></v-checkbox>
                   </template>
 
                   <template v-slot:[`item.検索要件`]="{ item }">
@@ -299,37 +324,33 @@
 
               <v-card-actions class="justify-end pa-4">
                 <div>
-                  <v-tooltip bottom>
-                    <template v-slot:activator="{ on, attrs }">
+                  <v-tooltip text="JSON形式で中間データをエクスポート" location="bottom">
+                    <template v-slot:activator="{ props }">
                       <v-btn
                         color="secondary"
                         fab
                         small
                         :disabled="import_count === 0"
-                        v-bind="attrs"
-                        v-on="on"
+                        v-bind="props"
                         @click="createJSONfile()">
                         <v-icon>mdi-code-json</v-icon>
                       </v-btn>
                     </template>
-                    <span>JSON形式で中間データをエクスポート</span>
                   </v-tooltip>
 
-                  <v-tooltip bottom>
-                    <template v-slot:activator="{ on, attrs }">
+                  <v-tooltip text="Excel形式でエクスポート" location="bottom">
+                    <template v-slot:activator="{ props }">
                       <v-btn
                         color="success"
                         fab
                         small
                         class="ml-2"
                         :disabled="import_count === 0"
-                        v-bind="attrs"
-                        v-on="on"
+                        v-bind="props"
                         @click="createXlSXfile()">
                         <v-icon>mdi-file-excel</v-icon>
                       </v-btn>
                     </template>
-                    <span>Excel形式でエクスポート</span>
                   </v-tooltip>
                 </div>
               </v-card-actions>
@@ -455,6 +476,7 @@
           processedCount: 0,
           totalToProcess: 0,
 
+
           // --- UIと連動するデータ ---
           dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
           dc_collections: [],
@@ -468,45 +490,77 @@
           import_datas: [],
           selected_rows: [],
           import_tbl_headers:[
-            { text:'No', value:'no' },
-            { text:'category', value:'category', style:{width:"6rem"} },
-            { text:'検索要件', value:'検索要件', style:{width:"12rem"}, cellClass:"" },
-            { text:'', value:'priority', style:{width:"6rem"} },
-            { text:'AI判定', value:'wditem_judge', style:{width:"4rem"}, class: 'ai-column' },
-            { text:'AIスコア', value:'wditem_score', style:{width:"4rem"}, class: 'ai-column' },
-            { text:'AI理由', value:'wditem_reason', style:{width:"15rem"}, class: 'ai-column' },
-            { text:'要件', value:'要件', style:{width:"12rem"}, cellClass:"" },
-            { text:'回答', value:'回答', style:{width:"4rem"} },
-            { text:'備考／補足', value:'備考／補足', style:{width:"6rem"} },
-            { text:'変更区分', value:'変更区分' },
-            { text:'意見', value:'意見' },
-            { text:'変更後要件', value:'変更後要件' },
-            { text:'Ｓｉｅｒ向けコメント', value:'Ｓｉｅｒ向けコメント', style:{width:"5rem"} },
-            { text:'工数', value:'工数' },
-            { text:'社内向けコメント', value:'社内向けコメント', style:{width:"5rem"} },
-            { text:'id', value:'id', style:{width:"4rem"}},
-            { text:'カテゴリ', value:'カテゴリ', style:{width:"6rem"}  },
-            { text:'システム名', value:'システム名' },
-            { text:'シート名', value:'シート名', style:{width:"6rem"} },
-            { text:'ファイル名', value:'ファイル名', style:{width:"6rem"}  },
+            { title:'No', key:'no', minWidth:'3rem' },
+            { title:'category', key:'category', minWidth:'6rem' },
+            { title:'検索要件', key:'検索要件', minWidth:'20rem', maxWidth:'20rem', cellClass:"" },
+            { title:'　　　　', key:'priority', minWidth:'6rem' },
+            { title:'AI判定', key:'wditem_judge', minWidth:'6rem', class: 'ai-column' },
+            { title:'AIスコア', key:'wditem_score', minWidth:'6rem', class: 'ai-column' },
+            { title:'AI理由', key:'wditem_reason', minWidth:'20rem', maxWidth:'20rem', class: 'ai-column' },
+            { title:'要件', key:'要件', minWidth:'20rem', maxWidth:'20rem', cellClass:"" },
+            { title:'回答', key:'回答', minWidth:'4rem' },
+            { title:'備考／補足', key:'備考／補足', minWidth:'6rem' },
+            { title:'変更区分', key:'変更区分', minWidth:'10rem' },
+            { title:'意見', key:'意見', minWidth:'10rem' },
+            { title:'変更後要件', key:'変更後要件', minWidth:'12rem' },
+            { title:'Ｓｉｅｒ向けコメント', key:'Ｓｉｅｒ向けコメント', minWidth:'8rem' },
+            { title:'工数', key:'工数', minWidth:'6rem' },
+            { title:'社内向けコメント', key:'社内向けコメント', minWidth:'8rem' },
+            { title:'id', key:'id', minWidth:'4rem'},
+            { title:'カテゴリ', key:'カテゴリ', minWidth:'6rem'  },
+            { title:'システム名', key:'システム名', minWidth:'10rem' },
+            { title:'シート名', key:'シート名', minWidth:'6rem' },
+            { title:'ファイル名', key:'ファイル名', minWidth:'6rem'  },
           ]
         }),
 
         watch: {
-          dc_collections_selected: function (cid) {
-            console.log('[dc_collections_selected]', cid)
-            let param = JSON.parse(this.dc_paramjson)
-            param.collection_ids = [cid.collection_id]
-            this.dc_paramjson = JSON.stringify(param, null, 2)
-          }
-        },
+         dc_collections_selected: function (cid) {
+           console.log('[dc_collections_selected]', cid)
+           let param = JSON.parse(this.dc_paramjson)
+           param.collection_ids = [cid.collection_id]
+           this.dc_paramjson = JSON.stringify(param, null, 2)
+         },
+         import_datas: {
+           handler() {
+             this.updateSelectedRowsFromItems();
+           },
+           deep: true
+         }
+       },
 
         methods: {
           showToast(msg, type = 'info') {
-            this.toast.text = msg
-            this.toast.type = type
-            this.toast.show = true
+             this.toast.text = msg
+             this.toast.type = type
+             this.toast.show = true
           },
+
+          // selected_rowsをアイテムのselectedプロパティから同期（初期化や手動同期用）
+          updateSelectedRowsFromItems() {
+            const prevSelected = [...this.selected_rows];
+            this.selected_rows = this.import_datas.filter(item => item.selected);
+            if (prevSelected.length !== this.selected_rows.length) {
+              // console.log('updateSelectedRowsFromItems: selected count changed from', prevSelected.length, 'to', this.selected_rows.length);
+              console.log(this.selected_rows);
+            }
+          },
+
+          // 行選択を処理するメソッド（個別チェックボックスのクリック用）
+           toggleRowSelection(item, checked) {
+             console.log('toggleRowSelection called:', { item_no: item.no, checked });
+             item.selected = checked;
+             this.updateSelectedRowsFromItems();
+           },
+
+          // 全選択/解除の処理
+           handleSelectAll(checked) {
+             console.log('handleSelectAll called:', checked);
+             this.import_datas.forEach(item => {
+               item.selected = checked;
+             });
+             this.updateSelectedRowsFromItems();
+           },
 
           getChipColor(judge) {
             if (judge === '○') return 'green'
@@ -563,6 +617,7 @@
                 no: obj_cnt,
                 category: systemName,
                 検索要件: currentItem['要件'],
+                selected: false, // チェックボックス用の状態を追加
                 wditem1: null,
                 wditem2: null,
                 wditem3: null,
@@ -683,7 +738,7 @@
           },
 
           runOnSelected() {
-            this.onSendAIJudgeBtn(this.selected_rows)
+            this.onSendAIJudgeBtn(this.selected_rows);
           },
           runOnAll() {
             this.onSendAIJudgeBtn(this.import_datas)
@@ -914,10 +969,12 @@
           }
         },
 
-        mounted() {
-          console.log('Vue app mounted.')
-          this.init()
-        }
+        async mounted() {
+           console.log('Vue app mounted.')
+           await this.init()
+
+           this.import_count = this.import_datas.length;
+         }
       });
 
       // Vuetifyの使用

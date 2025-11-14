@@ -173,9 +173,13 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-.vscode
+# Node.js
 node_modules
-.DS_Store
-memo.md
-
 package-lock.json
+
+# User
+.vscode
+.DS_Store
+
+memo.md
+dummy
