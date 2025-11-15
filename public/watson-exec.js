@@ -70,7 +70,11 @@ export class WatsonAPIs {
           collections: "wdcols",
           search: "wdsearch",
           autocomp: "wdautocomp",
-          generate: "gen"
+          generate: "gen",
+          listdocuments: "wdlistdocuments",
+          deletedocument: "wddeletedocument",
+          adddocument: "wdadddocument",
+          getdocument: "wdgetdocument"
         }
       },
       llm: {
@@ -103,6 +107,36 @@ export class WatsonAPIs {
   }
 
   // --- クラスメソッド ---
+
+  /**
+   * Watson Discoveryのドキュメント一覧を取得します。
+   * @param {string} collectionId 対象のコレクションID
+   * @param {boolean} [isParent=true] 親ドキュメントのみを取得するフラグ
+   */
+  async fetchDocuments(collectionId, isParent = true) {
+    console.log(`fetchDocuments 呼び出し - collection_id: ${collectionId}, is_parent: ${isParent}`);
+    const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.listdocuments}`;
+    const params = {
+      collection_id: collectionId,
+      is_parent: isParent
+    };
+    console.log("リクエストパラメータ:", params);
+    const data = await callApi("POST", apiUrl, params);
+    console.log("fetchDocuments 結果:", data ? `${data.documents?.length || 0}件取得` : 'データなし');
+    return data ? data.documents : null;
+  }
+
+  /**
+   * Watson Discoveryのドキュメントを削除します。
+   * @param {string} collectionId 対象のコレクションID
+   * @param {string} documentId 削除するドキュメントID
+   */
+  async deleteDocument(collectionId, documentId) {
+    const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.deletedocument}`;
+    const params = { collection_id: collectionId, document_id: documentId };
+    const data = await callApi("POST", apiUrl, params);
+    return data;
+  }
 
   /**
    * Watson Discoveryのコレクションリストを取得します。
@@ -177,6 +211,68 @@ export class WatsonAPIs {
         console.log(item);
         onProgress(i, item);
       }
+    }
+  }
+
+  /**
+   * Watson Discoveryにドキュメントを追加します。
+   * @param {string} collectionId 対象のコレクションID
+   * @param {object} documentData 追加するドキュメントデータ
+   * @param {string} filename ファイル名
+   * @returns {Promise<object|null>} 追加結果またはnull（エラー時）
+   */
+  async addDocument(collectionId, documentData, filename) {
+    console.log("addDocument メソッド呼び出し:", collectionId, filename);
+    const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.adddocument}`;
+    console.log("APIエンドポイント:", apiUrl);
+    
+    if (!filename) {
+      console.error("ファイル名が指定されていません");
+      return null;
+    }
+    
+    // APIの要件に合わせてパラメータを設定
+    const params = {
+      collection_id: collectionId,
+      filename: filename,               // filenameは必須
+      file: JSON.stringify(documentData),  // データをJSON文字列に変換してfileパラメータに設定
+      file_content_type: 'application/json' // JSONデータであることを明示
+    };
+    console.log("リクエストパラメータ:", params);
+    
+    try {
+      const data = await callApi("POST", apiUrl, params);
+      console.log("APIレスポンス:", data);
+      return data;
+    } catch (error) {
+      console.error("addDocument エラー:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Watson Discoveryの特定のドキュメントを取得します。
+   * @param {string} collectionId 対象のコレクションID
+   * @param {string} documentId 取得するドキュメントID
+   * @returns {Promise<object|null>} ドキュメント情報またはnull（エラー時）
+   */
+  async getDocument(collectionId, documentId) {
+    console.log(`getDocument 呼び出し - collection_id: ${collectionId}, document_id: ${documentId}`);
+    const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.getdocument}`;
+    
+    const params = {
+      collection_id: collectionId,
+      document_id: documentId
+    };
+    console.log("リクエストパラメータ:", params);
+    
+    try {
+      const data = await callApi("POST", apiUrl, params);
+      console.log("getDocument 結果:", data);
+      return data;
+    } catch (error) {
+      console.error("getDocument エラー:", error);
+      return null;
     }
   }
 }

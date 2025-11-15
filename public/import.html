@@ -133,18 +133,18 @@
                   placeholder="ここにファイルをドロップすることもできます"
                   accept=".xlsx, .xls, .json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/json"
                   hide-details
-                  @update:model-value="onFileChange"
+                  @update:model-value="file => file && readFile(file)"
                   :loading="isLoading"
                 ></v-file-input>
               </div>
             </v-card>
 
             <!-- データ表示テーブル -->
-            <v-card class="ma-2" :class="{ 'hide-ai-columns': !is_judge }">
+            <v-card class="ma-2">
               <v-card-title class="primary--text">取り込む仕様一覧</v-card-title>
               <v-card-text class="">
                 <v-data-table
-                   height="63vh"
+                   height="40vh"
                    :headers="import_tbl_headers"
                    :items="import_datas"
                    :items-per-page="-1"
@@ -211,12 +211,43 @@
 
                 </v-data-table>
               </v-card-text>
+                            
+              <v-card-actions class="justify-end pa-4">
+                <v-tooltip text="JSON形式で中間データをエクスポート" location="bottom">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      class=""
+                      :disabled="import_count === 0"
+                      color="secondary"
+                      variant="elevated"
+                      v-bind="props"
+                      @click="createJSONfile()">
+                      <v-icon>mdi-code-json</v-icon>
+                      データ保存
+                    </v-btn>
+                  </template>
+                </v-tooltip>
 
+                <v-tooltip text="JSON形式でデータをアップロード" location="bottom">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      :disabled="import_count === 0"
+                      color="orange"
+                      variant="elevated"
+                      v-bind="props"
+                      @click="uploadJSONfile()">
+                      <v-icon>mdi-cloud-upload</v-icon>
+                      アップロード ({{ import_datas.length }}件)
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+              </v-card-actions>
             </v-card>
 
             <!-- コレクション読み込みセクション -->
             <v-card class="ma-2 pa-4">
-              <div class="d-flex align-center">
+              <v-card-title class="primary--text">サーバ側仕様書一覧</v-card-title>
+              <v-card-text class="">
                 <v-select
                   class="flex-grow-1 me-4"
                   label="Collections"
@@ -229,13 +260,114 @@
                   return-object
                   hide-details
                 ></v-select>
-                
-                <v-btn v-if="import_count > 0" color="orange" variant="elevated" @click="runOnAll">
-                  <v-icon start>mdi-cloud-upload</v-icon>
-                  アップロード ({{ import_datas.length }}件)
-                </v-btn>
-              </div>
+              </v-card-text>
+
+              <v-card-actions class="justify-end pa-4">
+                <div>
+                  <v-tooltip text="登録済みのドキュメント一覧を取得する" location="bottom">
+                    <template v-slot:activator="{ props }">
+                      <v-btn
+                        class="mr-2"
+                        :disabled="!dc_collections_selected"
+                        color="primary"
+                        variant="elevated"
+                        v-bind="props"
+                        :loading="isDocumentsLoading"
+                        @click="listDocuments()">
+                        <v-icon>mdi-file-document-multiple</v-icon>
+                        ドキュメント一覧
+                      </v-btn>
+                    </template>
+                  </v-tooltip>
+                </div>
+              </v-card-actions>
             </v-card>
+
+            <!-- ドキュメント一覧表示テーブル -->
+            <v-card v-if="dc_documents.length > 0" class="ma-2">
+              <v-card-title class="primary--text">ドキュメント一覧</v-card-title>
+              <v-card-text>
+                <v-data-table
+                  height="30vh"
+                  :headers="documents_tbl_headers"
+                  :items="dc_documents"
+                  :items-per-page="-1"
+                  no-data-text="データがありません"
+                  item-key="document_id"
+                  hide-default-footer
+                  fixed-header
+                  :hide-default-header="false">
+
+                  <template v-slot:item.status="{ item }">
+                    <v-chip
+                      :color="item.status === 'available' ? 'success' : 'warning'"
+                      size="small"
+                      text-color="white">
+                      {{ item.status }}
+                    </v-chip>
+                  </template>
+
+                  <template v-slot:item.children_count="{ item }">
+                    <div>{{ item.children && item.children.count || 0 }}</div>
+                  </template>
+
+                  <template v-slot:item.created="{ item }">
+                    <div>{{ item.created || '取得中...' }}</div>
+                  </template>
+
+                  <template v-slot:item.updated="{ item }">
+                    <div>{{ item.updated ? new Date(item.updated).toLocaleString() : '-' }}</div>
+                  </template>
+
+                  <template v-slot:item.actions="{ item }">
+                    <v-btn
+                      icon="mdi-delete"
+                      variant="text"
+                      color="error"
+                      size="small"
+                      :disabled="item.loading"
+                      @click="confirmDeleteDocument(item)"
+                      title="ドキュメントを削除">
+                    </v-btn>
+                  </template>
+                </v-data-table>
+              </v-card-text>
+            </v-card>
+
+            <!-- 削除確認ダイアログ -->
+            <v-dialog v-model="showDeleteDialog" max-width="500px">
+              <v-card>
+                <v-card-title class="text-h5">確認</v-card-title>
+                <v-card-text>
+                  このドキュメントを削除してもよろしいですか？<br>
+                  <span v-if="documentToDelete">
+                    ID: {{ documentToDelete.document_id }}<br>
+                    {{ documentToDelete.filename || 'ドキュメント' }}
+                  </span>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn color="blue-darken-1" variant="text" @click="showDeleteDialog = false">キャンセル</v-btn>
+                  <v-btn color="error" variant="elevated" @click="deleteDocument">削除する</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+            <!-- アップロード確認ダイアログ -->
+            <v-dialog v-model="showUploadDialog" max-width="500px">
+              <v-card>
+                <v-card-title class="text-h5">確認</v-card-title>
+                <v-card-text>
+                  {{ import_datas.length }}件のデータをアップロードします。<br>
+                  続行しますか？
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn color="blue-darken-1" variant="text" @click="showUploadDialog = false">キャンセル</v-btn>
+                  <v-btn color="orange" variant="elevated" @click="executeUpload">アップロードする</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
 
           </v-container>
         </v-main>
@@ -278,13 +410,15 @@
           // --- コンポーネントの状態 ---
           toast: { show: false, timeout: 4000, type: 'primary', text: '' },
           isLoading: false,
+          isDocumentsLoading: false,
+          showDeleteDialog: false,
+          showUploadDialog: false,
+          documentToDelete: null,
 
           // --- UIと連動するデータ ---
           dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
           dc_collections: [],
           dc_collections_selected: [],
-
-          is_judge: true,
 
           import_file: null,
           import_filename: '',
@@ -311,7 +445,18 @@
 
             { title:'シート名', key:'シート名', minWidth:'6rem' },
             { title:'ファイル名', key:'ファイル名', minWidth:'6rem'  },
-          ]
+          ],
+
+          dc_documents: [], // ドキュメント一覧を格納する配列
+          documents_tbl_headers: [
+            { title: 'ドキュメントID', key: 'document_id' },
+            { title: 'ステータス', key: 'status' },
+            { title: 'ファイル名', key: 'filename' },
+            { title: '件数', key: 'children_count' },
+            { title: '作成日', key: 'created' },
+            { title: '更新日', key: 'updated' },
+            { title: '操作', key: 'actions', sortable: false }
+          ],
         }),
 
         watch: {
@@ -328,6 +473,107 @@
              this.toast.text = msg
              this.toast.type = type
              this.toast.show = true
+          },
+
+          async listDocuments() {
+            if (!this.dc_collections_selected || !this.dc_collections_selected.collection_id) {
+              this.showToast('コレクションを選択してください', 'warning')
+              return
+            }
+            
+            this.isDocumentsLoading = true
+            try {
+              // 親ドキュメントのみを取得するためにis_parent=trueを明示的に指定
+              const is_parent = true
+              console.log(`listDocuments: コレクションID=${this.dc_collections_selected.collection_id}, is_parent=${is_parent}`)
+              const documents = await this.watsonAPIs.fetchDocuments(this.dc_collections_selected.collection_id, is_parent)
+              console.log(`取得したドキュメント:`, documents ? documents.length : 0)
+              
+              if (documents && documents.length > 0) {
+                // 取得したドキュメント一覧をいったん保存
+                this.dc_documents = documents.map(doc => ({
+                  ...doc,
+                  loading: true // 詳細情報取得中フラグを追加
+                }))
+                
+                // 各ドキュメントの詳細情報を取得
+                for (let i = 0; i < documents.length; i++) {
+                  const docId = documents[i].document_id
+                  try {
+                    console.log(`ドキュメント詳細取得: ${docId}`)
+                    const docDetail = await this.watsonAPIs.getDocument(
+                      this.dc_collections_selected.collection_id,
+                      docId
+                    )
+                    
+                    if (docDetail) {
+                      // 取得した詳細情報を元のドキュメントにマージ
+                      this.dc_documents[i] = {
+                        ...this.dc_documents[i],
+                        ...docDetail,
+                        created: docDetail.created ? new Date(docDetail.created).toLocaleString() : '',
+                        loading: false
+                      }
+                    } else {
+                      // 詳細取得に失敗した場合はエラーフラグを立てる
+                      this.dc_documents[i].loading = false
+                      this.dc_documents[i].error = true
+                    }
+                  } catch (detailError) {
+                    console.error(`ドキュメント詳細取得エラー (${docId}):`, detailError)
+                    this.dc_documents[i].loading = false
+                    this.dc_documents[i].error = true
+                  }
+                }
+                
+                this.showToast(`ドキュメント一覧の取得が完了しました (${documents.length}件)`)
+              } else {
+                this.dc_documents = []
+                this.showToast('ドキュメントがありません', 'info')
+              }
+            } catch (error) {
+              console.error('ドキュメント取得エラー:', error)
+              this.showToast(`ドキュメント一覧の取得に失敗しました: ${error.message}`, 'error')
+              this.dc_documents = []
+            } finally {
+              this.isDocumentsLoading = false
+            }
+          },
+
+          async confirmDeleteDocument(document) {
+            this.documentToDelete = document
+            this.showDeleteDialog = true
+          },
+
+          async deleteDocument() {
+            if (!this.documentToDelete || !this.documentToDelete.document_id) {
+              this.showToast('削除するドキュメントが選択されていません', 'warning')
+              this.showDeleteDialog = false
+              return
+            }
+
+            try {
+              const result = await this.watsonAPIs.deleteDocument(
+                this.dc_collections_selected.collection_id,
+                this.documentToDelete.document_id
+              )
+              
+              if (result) {
+                // 成功したら一覧から削除
+                this.dc_documents = this.dc_documents.filter(
+                  doc => doc.document_id !== this.documentToDelete.document_id
+                )
+                this.showToast('ドキュメントの削除が完了しました')
+              } else {
+                this.showToast('ドキュメントの削除に失敗しました', 'error')
+              }
+            } catch (error) {
+              console.error('ドキュメント削除エラー:', error)
+              this.showToast(`ドキュメントの削除に失敗しました: ${error.message}`, 'error')
+            } finally {
+              this.showDeleteDialog = false
+              this.documentToDelete = null
+            }
           },
 
           async listCollections(showtoast) {
@@ -347,19 +593,13 @@
             const allowedExtensions = /(\.xlsx|\.xls|\.json)$/i
             if (file && allowedExtensions.exec(file.name)) {
               this.import_file = file
-              this.onFileChange(file)
+              this.readFile(file)
             } else {
               this.import_file = null
               this.showToast(
                 'ExcelまたはJSONファイルを選択してください。',
                 'error'
               )
-            }
-          },
-
-          onFileChange(file) {
-            if (file) {
-              this.readFile(file)
             }
           },
 
@@ -500,99 +740,6 @@
             })
           },
 
-          runOnAll() {
-            // 一時的に空の関数として残し、ボタンクリック時のエラーを防止
-            console.log('アップロード処理は現在実装中です。データ数:', this.import_datas.length);
-            this.showToast('アップロード機能は現在準備中です', 'info');
-          },
-
-          /* 後で似た処理を作成するためコメントアウト
-          async onSendAIJudgeBtn(items) {
-            if (!items || items.length === 0) {
-              this.showToast('対象のデータがありません。', 'warning')
-              return
-            }
-
-            this.isBatchRunning = true
-            this.isCancelled = false
-            this.processedCount = 0
-            this.totalToProcess = items.length
-            this.batchProgress = 0
-
-            for (const item of items) {
-              if (this.isCancelled) {
-                this.showToast('処理を中断しました。', 'info')
-                break
-              }
-
-              // Vue 3ではオブジェクトプロパティへの直接代入が可能
-              item.isLoading = true;
-
-              try {
-                if (!item.wditem1?.id) {
-                  // execute wd search
-                  const currentParams = JSON.parse(this.dc_paramjson)
-                  const resultWDJson = await this.watsonAPIs.executeQuery(
-                    item.要件,
-                    currentParams
-                  )
-                  console.log(resultWDJson)
-                  const wd_results = resultWDJson && resultWDJson.results ? resultWDJson.results.slice(0, 3) : []
-
-                  for (let i = 1; i <= 3; i++) {
-                    item[`wditem${i}`] = {};
-                    if (wd_results[i-1]) {
-                      item[`wditem${i}`] = wd_results[i-1];
-                    }
-                  }
-                }
-
-                if (this.is_judge && item.wditem1) {
-                  await this.watsonAPIs.processAIJudgements(
-                    [item.wditem1, item.wditem2, item.wditem3].filter(wd => wd && wd['要件']),
-                    item.要件,
-                    (index, updatedDiscoveryItem) => {
-                      const itemIndex = index + 1
-                      const wdItemKey = `wditem${itemIndex}`
-                      if (updatedDiscoveryItem)
-                        // Vue 3では直接代入が可能
-                        item[wdItemKey] = {...item[wdItemKey], ...updatedDiscoveryItem};
-                    }
-                  )
-                }
-              } catch (error) {
-                console.error(`AI判定エラー (Item No: ${item.no}):`, error)
-                const errorResult = {
-                  ai_result: { judge: 'エラー', reason: error.message },
-                  isLoading: false
-                }
-                // Vue 3では直接代入が可能
-                item.wditem1 = errorResult;
-              } finally {
-                // Vue 3では直接代入が可能
-                item.isLoading = false;
-                this.processedCount++
-                this.batchProgress =
-                  (this.processedCount / this.totalToProcess) * 100
-              }
-            }
-
-            if (!this.isCancelled) {
-              this.showToast('AI判定が完了しました。', 'success')
-            }
-
-            this.isBatchRunning = false
-          },
-          */
-
-          /* アップロード機能実装時に必要になるコード
-          cancelRun() {
-            this.isCancelled = true
-            this.showToast('処理を中断しています...', 'warning')
-          },
-          */
-
-          /* 将来的に使用する可能性のある関数
           createJSONfile() {
             if (this.import_count === 0) {
               this.showToast('エクスポートするデータがありません。', 'warning')
@@ -629,7 +776,56 @@
               )
             }
           },
-          */
+
+          uploadJSONfile() {
+            if (!this.dc_collections_selected || !this.dc_collections_selected.collection_id) {
+              this.showToast('コレクションを選択してください', 'warning');
+              return;
+            }
+
+            if (this.import_count === 0) {
+              this.showToast('アップロードするデータがありません', 'warning');
+              return;
+            }
+
+            // 確認ダイアログ表示（Vuetifyのv-dialogを使用）
+            this.showUploadDialog = true;
+          },
+          
+          async executeUpload() {
+            // アップロード処理の実行
+            this.showUploadDialog = false; // ダイアログを閉じる
+            this.isLoading = true;
+            
+            try {
+              // すべてのデータを一つのJSONファイルとして送信
+              const filename = this.import_filename || 'documents.json';
+              
+              console.log(`アップロード処理 - 一括送信: ${filename}, データ件数: ${this.import_datas.length}`);
+              
+              // ドキュメント追加APIを呼び出し（一括送信）
+              const result = await this.watsonAPIs.addDocument(
+                this.dc_collections_selected.collection_id,
+                this.import_datas,  // すべてのデータを一度に送信
+                filename
+              );
+              
+              if (result) {
+                console.log(`アップロード成功:`, result);
+                this.showToast(`${this.import_datas.length}件のデータを含むドキュメントを登録しました`, 'success');
+                
+                // 成功したら、ドキュメント一覧を更新
+                await this.listDocuments();
+              } else {
+                this.showToast('ドキュメントの登録に失敗しました。', 'error');
+              }
+            } catch (e) {
+              console.error('アップロード処理エラー:', e);
+              this.showToast(`アップロード処理中にエラーが発生しました: ${e.message}`, 'error');
+            } finally {
+              this.isLoading = false;
+            }
+          },
 
           async init() {
             await this.listCollections()
