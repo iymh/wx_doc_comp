@@ -17,16 +17,12 @@
       .ws-preline {
         white-space: pre-line;
       }
-      .v-data-table--fixed-header > .v-data-table__wrapper {
+      .v-data-table--fixed-header > .v-table__wrapper {
         overflow: auto;
-      }
-      .v-data-table > .v-data-table__wrapper > table {
-        table-layout: fixed;
-        width: 100%;
       }
 
       /* Custom header styles */
-      .v-data-table > .v-data-table__wrapper > table > thead > tr > th {
+      .v-data-table > .v-table__wrapper > table > thead > tr > th {
         position: sticky;
         top: 0;
         z-index: 2; /* Ensure it's above the content */
@@ -44,7 +40,7 @@
         min-width: 2rem;
       }
 
-      .v-data-table > .v-data-table__wrapper > table > tbody > tr > td {
+      .v-data-table > .v-table__wrapper > table > tbody > tr > td {
         padding-left: 5px !important;
         padding-right: 5px !important;
         box-sizing: border-box;
@@ -93,16 +89,6 @@
         display: flex;
         align-items: center; /* テキストを上下中央に配置 */
         justify-content: center; /* テキストを左右中央に配置 */
-      }
-      .hide-ai-columns .ai-column {
-        width: 0 !important;
-        min-width: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        border-width: 0;
-        opacity: 0;
-        overflow: hidden;
-        white-space: nowrap;
       }
     </style>
   </head>
@@ -160,6 +146,7 @@
                       label="AI判定を実行"
                       class="mr-4"
                       hide-details
+                      @update:model-value="handleJudgeToggle"
                     ></v-switch>
 
                     <v-btn
@@ -203,21 +190,25 @@
             </v-card>
 
             <!-- データ表示テーブル -->
-            <v-card class="ma-2" :class="{ 'hide-ai-columns': !is_judge }">
+            <v-card class="ma-2">
               <v-card-title class="primary--text">判定する要件一覧</v-card-title>
               <v-card-text class="">
                 <v-data-table
-                   show-select
-                   height="63vh"
-                   :headers="import_tbl_headers"
-                   :items="import_datas"
-                   :items-per-page="-1"
-                   no-data-text="データがありません"
-                   item-key="no"
-                   hide-default-footer
-                   fixed-header
-                   :hide-default-header="false"
-                   ref="dataTable">
+                    show-select
+                    height="63vh"
+                    :headers="import_tbl_headers"
+                    :items="import_datas"
+                    :items-per-page="20"
+                    :footer-props="{
+                      'items-per-page-options': [10, 20, 50, 100, -1],
+                      'items-per-page-text': '行数:'
+                    }"
+                    no-data-text="データがありません"
+                    item-key="no"
+                    fixed-header
+                    :hide-default-header="false"
+                    :key="'table-' + is_judge"
+                    ref="dataTable">
 
                   <!-- ヘッダーチェックボックス -->
                   <template v-slot:[`header.data-table-select`]="{ props, on }">
@@ -233,13 +224,11 @@
                   <template v-slot:header="{ props, on }">
                     <thead>
                       <tr>
-                        <th
-                             v-for="(header, index) in import_tbl_headers"
-                             :key="header.key"
-                             :class="header.class"
-                           >
-                             <div>{{ header.title }}</div>
-                           </th>
+                        <th v-for="(header, index) in import_tbl_headers"
+                          :key="header.key"
+                          :class="header.class">
+                          <div>{{ header.title }}</div>
+                        </th>
                       </tr>
                     </thead>
                   </template>
@@ -268,52 +257,51 @@
                   </template>
 
                   <template v-slot:[`item.wditem_judge`]="{ item }">
-                    <wd-item-cell :item="item" display-type="judge"></wd-item-cell>
+                    <wd-item-cell :item="item" display-type="judge" :is-judge="is_judge"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.wditem_score`]="{ item }">
-                    <wd-item-cell :item="item" display-type="score"></wd-item-cell>
+                    <wd-item-cell :item="item" display-type="score" :is-judge="is_judge"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.wditem_reason`]="{ item }">
-                    <wd-item-cell :item="item" display-type="reason"></wd-item-cell>
+                    <wd-item-cell :item="item" display-type="reason" :is-judge="is_judge"></wd-item-cell>
+                  </template>
+
+                  <template v-slot:[`item.カテゴリ`]="{ item }">
+                    <wd-item-cell :item="item" field="カテゴリ"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.要件`]="{ item }">
-                    <wd-item-cell :item="item" field="要件"></wd-item-cell>
+                    <wd-item-cell :item="item" field="要件" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.回答`]="{ item }">
                     <wd-item-cell :item="item" field="回答"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.備考／補足`]="{ item }">
-                    <wd-item-cell :item="item" field="備考／補足"></wd-item-cell>
+                    <wd-item-cell :item="item" field="備考／補足" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.変更区分`]="{ item }">
-                    <wd-item-cell :item="item" field="変更区分"></wd-item-cell>
+                    <wd-item-cell :item="item" field="変更区分" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.意見`]="{ item }">
-                    <wd-item-cell :item="item" field="意見"></wd-item-cell>
+                    <wd-item-cell :item="item" field="意見" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.変更後要件`]="{ item }">
-                    <wd-item-cell :item="item" field="変更後要件"></wd-item-cell>
+                    <wd-item-cell :item="item" field="変更後要件" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.Ｓｉｅｒ向けコメント`]="{ item }">
-                    <wd-item-cell :item="item" field="Ｓｉｅｒ向けコメント"></wd-item-cell>
+                    <wd-item-cell :item="item" field="Ｓｉｅｒ向けコメント" :needs-summary="true"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.工数`]="{ item }">
                     <wd-item-cell :item="item" field="工数"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.社内向けコメント`]="{ item }">
-                    <wd-item-cell :item="item" field="社内向けコメント"></wd-item-cell>
+                    <wd-item-cell :item="item" field="社内向けコメント" :needs-summary="true"></wd-item-cell>
                   </template>
-                  <template v-slot:[`item.id`]="{ item }">
-                    <wd-item-cell :item="item" field="id"></wd-item-cell>
-                  </template>
-                  <template v-slot:[`item.カテゴリ`]="{ item }">
-                    <wd-item-cell :item="item" field="カテゴリ"></wd-item-cell>
-                  </template>
-                  <template v-slot:[`item.システム名`]="{ item }">
-                    <wd-item-cell :item="item" field="システム名"></wd-item-cell>
-                  </template>
+
                   <template v-slot:[`item.シート名`]="{ item }">
                     <wd-item-cell :item="item" field="シート名"></wd-item-cell>
+                  </template>
+                  <template v-slot:[`item.シート行番号`]="{ item }">
+                    <wd-item-cell :item="item" field="シート行番号"></wd-item-cell>
                   </template>
                   <template v-slot:[`item.ファイル名`]="{ item }">
                     <wd-item-cell :item="item" field="ファイル名"></wd-item-cell>
@@ -360,7 +348,7 @@
       </v-app>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
     <script type="importmap">
     {
       "imports": {
@@ -373,14 +361,20 @@
     <script type="text/x-template" id="wd-item-template">
       <div class="pr-box">
         <!-- Default Display -->
-        <template v-if="displayType === 'default'">
-          <div class="pr-item color_pr1 summary_box" v-if="item.wditem1">{{ item.wditem1[field] }}</div>
-          <div class="pr-item color_pr2 summary_box" v-if="item.wditem2">{{ item.wditem2[field] }}</div>
-          <div class="pr-item color_pr3 summary_box" v-if="item.wditem3">{{ item.wditem3[field] }}</div>
-        </template>
+        <div v-if="displayType === 'default'" class="display-content">
+          <div :class="['pr-item', 'color_pr1', needsSummary ? 'summary_box' : '']" v-if="item.wditem1">
+            {{ field === 'シート行番号' ? item.wditem1['行番号'] : item.wditem1[field] }}
+          </div>
+          <div :class="['pr-item', 'color_pr2', needsSummary ? 'summary_box' : '']" v-if="item.wditem2">
+            {{ field === 'シート行番号' ? item.wditem2['行番号'] : item.wditem2[field] }}
+          </div>
+          <div :class="['pr-item', 'color_pr3', needsSummary ? 'summary_box' : '']" v-if="item.wditem3">
+            {{ field === 'シート行番号' ? item.wditem3['行番号'] : item.wditem3[field] }}
+          </div>
+        </div>
 
         <!-- Judge Display -->
-        <template v-if="displayType === 'judge'">
+        <div v-else-if="displayType === 'judge'" class="display-content">
           <div class="pr-item color_pr1">
             <v-progress-circular v-if="item.wditem1 && item.wditem1.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
             <div v-else-if="item.wditem1 && item.wditem1.ai_result" :color="getChipColor(item.wditem1.ai_result.judge)">
@@ -399,10 +393,10 @@
                 {{ item.wditem3.ai_result.judge }}
             </div>
           </div>
-        </template>
+        </div>
 
         <!-- Score Display -->
-        <template v-if="displayType === 'score'">
+        <div v-else-if="displayType === 'score'" class="display-content">
           <div class="pr-item color_pr1">
             <span v-if="item.wditem1 && item.wditem1.ai_result && item.wditem1.ai_result.score !== undefined">{{ item.wditem1.ai_result.score }}</span>
           </div>
@@ -412,14 +406,15 @@
           <div class="pr-item color_pr3">
             <span v-if="item.wditem3 && item.wditem3.ai_result && item.wditem3.ai_result.score !== undefined">{{ item.wditem3.ai_result.score }}</span>
           </div>
-        </template>
+        </div>
 
         <!-- Reason Display -->
-        <template v-if="displayType === 'reason'">
-          <div class="pr-item color_pr1 summary_box" v-if="item.wditem1 && item.wditem1.ai_result">{{ item.wditem1.ai_result.reason }}</div>
-          <div class="pr-item color_pr2 summary_box" v-if="item.wditem2 && item.wditem2.ai_result">{{ item.wditem2.ai_result.reason }}</div>
-          <div class="pr-item color_pr3 summary_box" v-if="item.wditem3 && item.wditem3.ai_result">{{ item.wditem3.ai_result.reason }}</div>
-        </template>
+        <div v-else-if="displayType === 'reason'" class="display-content">
+          <div :class="['pr-item', 'color_pr1', 'summary_box']" v-if="item.wditem1 && item.wditem1.ai_result">{{ item.wditem1.ai_result.reason }}</div>
+          <div :class="['pr-item', 'color_pr2', 'summary_box']" v-if="item.wditem2 && item.wditem2.ai_result">{{ item.wditem2.ai_result.reason }}</div>
+          <div :class="['pr-item', 'color_pr3', 'summary_box']" v-if="item.wditem3 && item.wditem3.ai_result">{{ item.wditem3.ai_result.reason }}</div>
+        </div>
+
       </div>
     </script>
 
@@ -441,15 +436,19 @@
           displayType: {
             type: String,
             default: 'default'
+          },
+          needsSummary: {
+            type: Boolean,
+            default: false
           }
         },
         methods: {
-          getChipColor(judge) {
-              if (judge === '○') return 'green';
-              if (judge === '×') return 'red';
-              return 'grey';
-          }
-        },
+         getChipColor(judge) {
+             if (judge === '○') return 'green';
+             if (judge === '×') return 'red';
+             return 'grey';
+         }
+       },
         template: '#wd-item-template'
       };
 
@@ -475,7 +474,10 @@
           batchProgress: 0,
           processedCount: 0,
           totalToProcess: 0,
+          current_sheet_name: '',  // シート名を保存する変数を追加
 
+          // スキップする回答の値のリスト
+          ignore_list: ['', '-', '---','－'],
 
           // --- UIと連動するデータ ---
           dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
@@ -489,45 +491,77 @@
           import_count: 0,
           import_datas: [],
           selected_rows: [],
-          import_tbl_headers:[
-            { title:'No', key:'no', minWidth:'3rem' },
-            { title:'category', key:'category', minWidth:'6rem' },
+          // 基本ヘッダー（常に表示）
+          base_tbl_headers: [
+            { title:'行番号', key:'行番号', minWidth:'4rem'},
+            { title:'検索カテゴリ', key:'検索カテゴリ', minWidth:'8rem' },
             { title:'検索要件', key:'検索要件', minWidth:'20rem', maxWidth:'20rem', cellClass:"" },
             { title:'　　　　', key:'priority', minWidth:'6rem' },
-            { title:'AI判定', key:'wditem_judge', minWidth:'6rem', class: 'ai-column' },
-            { title:'AIスコア', key:'wditem_score', minWidth:'6rem', class: 'ai-column' },
-            { title:'AI理由', key:'wditem_reason', minWidth:'20rem', maxWidth:'20rem', class: 'ai-column' },
-            { title:'要件', key:'要件', minWidth:'20rem', maxWidth:'20rem', cellClass:"" },
+          ],
+          
+          // AI関連ヘッダー（条件付き表示）
+          ai_tbl_headers: [
+            { title:'AI 判定', key:'wditem_judge', minWidth:'4rem' },
+            { title:'AI スコア', key:'wditem_score', minWidth:'4rem' },
+            { title:'AI 理由', key:'wditem_reason', minWidth:'20rem', maxWidth:'20rem' },
+          ],
+          
+          // その他の項目ヘッダー
+          other_tbl_headers: [
+            { title:'カテゴリ', key:'カテゴリ', minWidth:'8rem'  },
+            { title:'要件', key:'要件', minWidth:'20rem', maxWidth:'20rem' },
             { title:'回答', key:'回答', minWidth:'4rem' },
-            { title:'備考／補足', key:'備考／補足', minWidth:'6rem' },
-            { title:'変更区分', key:'変更区分', minWidth:'10rem' },
-            { title:'意見', key:'意見', minWidth:'10rem' },
+            { title:'備考／補足', key:'備考／補足', minWidth:'12rem' },
+            { title:'変更区分', key:'変更区分', minWidth:'6rem' },
+            { title:'意見', key:'意見', minWidth:'12rem' },
             { title:'変更後要件', key:'変更後要件', minWidth:'12rem' },
-            { title:'Ｓｉｅｒ向けコメント', key:'Ｓｉｅｒ向けコメント', minWidth:'8rem' },
-            { title:'工数', key:'工数', minWidth:'6rem' },
-            { title:'社内向けコメント', key:'社内向けコメント', minWidth:'8rem' },
-            { title:'id', key:'id', minWidth:'4rem'},
-            { title:'カテゴリ', key:'カテゴリ', minWidth:'6rem'  },
-            { title:'システム名', key:'システム名', minWidth:'10rem' },
-            { title:'シート名', key:'シート名', minWidth:'6rem' },
-            { title:'ファイル名', key:'ファイル名', minWidth:'6rem'  },
+            { title:'Ｓｉｅｒ向けコメント', key:'Ｓｉｅｒ向けコメント', minWidth:'12rem' },
+            { title:'工数', key:'工数', minWidth:'5rem' },
+            { title:'社内向けコメント', key:'社内向けコメント', minWidth:'12rem' },
+
+            { title:'シート名', key:'シート名', minWidth:'12rem' },
+            { title:'シート行番号', key:'シート行番号', minWidth:'5rem' },
+            { title:'ファイル名', key:'ファイル名', minWidth:'8rem'  },
           ]
         }),
 
+        computed: {
+          // is_judgeの状態に応じてヘッダーを動的に生成
+          import_tbl_headers() {
+            if (this.is_judge) {
+              return [...this.base_tbl_headers, ...this.ai_tbl_headers, ...this.other_tbl_headers];
+            } else {
+              return [...this.base_tbl_headers, ...this.other_tbl_headers];
+            }
+          }
+        },
+        
         watch: {
-         dc_collections_selected: function (cid) {
-           console.log('[dc_collections_selected]', cid)
-           let param = JSON.parse(this.dc_paramjson)
-           param.collection_ids = [cid.collection_id]
-           this.dc_paramjson = JSON.stringify(param, null, 2)
-         },
-         import_datas: {
-           handler() {
-             this.updateSelectedRowsFromItems();
-           },
-           deep: true
-         }
-       },
+          dc_collections_selected: function (cid) {
+            console.log('[dc_collections_selected]', cid)
+            let param = JSON.parse(this.dc_paramjson)
+            param.collection_ids = [cid.collection_id]
+            this.dc_paramjson = JSON.stringify(param, null, 2)
+          },
+          import_datas: {
+            handler() {
+              this.updateSelectedRowsFromItems();
+            },
+            deep: true
+          },
+          // is_judgeの変更を最適化
+          is_judge: {
+            handler() {
+              // nextTickを使ってDOMの更新後に処理を行う
+              this.$nextTick(() => {
+                if (this.$refs.dataTable) {
+                  // 表テーブルの強制更新
+                  this.$refs.dataTable.$forceUpdate();
+                }
+              });
+            }
+          }
+        },
 
         methods: {
           showToast(msg, type = 'info') {
@@ -560,6 +594,14 @@
                item.selected = checked;
              });
              this.updateSelectedRowsFromItems();
+           },
+
+           // AI判定Switchの変更処理
+           handleJudgeToggle(value) {
+             console.log('AI判定Switch toggled:', value);
+             this.is_judge = value;
+             // Vue 3ではリアクティブデータが自動的に更新されるので、
+             // computedプロパティが再評価されてテーブルが更新される
            },
 
           getChipColor(judge) {
@@ -602,29 +644,23 @@
           },
 
           processJsonArray(data) {
-            let systemName = ''
-            let obj_cnt = 0
-            return data.reduce((acc, currentItem) => {
+            return data.reduce((acc, currentItem, index) => {
               const answer = currentItem['回答']
-              if (answer === '') {
+              if (this.ignore_list.includes(answer)) {
                 return acc
               }
-              if (answer === '---') {
-                systemName = currentItem['要件']
-                return acc
-              }
+              
               const newItem = {
-                no: obj_cnt,
-                category: systemName,
+                行番号: index +2, // Excelの行番号 0 index と ヘッダ行分を加算
+                検索カテゴリ: currentItem['カテゴリ'],
                 検索要件: currentItem['要件'],
                 selected: false, // チェックボックス用の状態を追加
                 wditem1: null,
                 wditem2: null,
                 wditem3: null,
-                isLoading: false
+                isLoading: false,
               }
               acc.push(newItem)
-              obj_cnt++
               return acc
             }, [])
           },
@@ -695,13 +731,22 @@
             if (!data) return []
             this.import_filename = file.name
             const workbook = XLSX.read(data, { type: 'array' })
-            const firstSheetName = workbook.SheetNames[0]
-            const worksheet = workbook.Sheets[firstSheetName]
+            // シート名を保存
+            this.current_sheet_name = workbook.SheetNames[0]
+            const worksheet = workbook.Sheets[this.current_sheet_name]
+            
+            // ワークシートの範囲を取得
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            console.log('Sheet range:', range);
+            
             const dataAsArray = XLSX.utils.sheet_to_json(worksheet, {
-              header: 1,
-              defval: ''
+              header: 1,       // 1行目をヘッダーとして扱う
+              defval: '',      // 空セルのデフォルト値
+              blankrows: "**", // 空行を含める
+              raw: true,       // 生の値を取得
+              range: range     // シート全体の範囲を明示的に指定
             })
-            // console.log(dataAsArray);
+            console.log('Parsed data rows:', dataAsArray.length);
 
             if (dataAsArray.length < 2) {
               return []
@@ -711,7 +756,7 @@
             return dataRows.map(row => {
               const rowObject = {}
               headers.forEach((header, index) => {
-                rowObject[String(header)] = row[index]
+                if (header) rowObject[String(header)] = row[index]
               })
               return rowObject
             })
@@ -773,17 +818,19 @@
                     item.検索要件,
                     currentParams
                   )
-                  console.log(resultWDJson)
                   const wd_results = resultWDJson && resultWDJson.results ? resultWDJson.results.slice(0, 3) : []
 
+                  // バッチ処理して一度に更新する準備
+                  const updatedItems = {};
                   for (let i = 1; i <= 3; i++) {
-                    item[`wditem${i}`] = {};
-                    if (wd_results[i-1]) {
-                      item[`wditem${i}`] = wd_results[i-1];
-                    }
+                    updatedItems[`wditem${i}`] = wd_results[i-1] || {};
                   }
+                  
+                  // 一括でオブジェクトを更新
+                  Object.assign(item, updatedItems);
                 }
 
+                // is_judgeがtrueの場合のみ判定処理を実行
                 if (this.is_judge && item.wditem1) {
                   await this.watsonAPIs.processAIJudgements(
                     [item.wditem1, item.wditem2, item.wditem3].filter(wd => wd && wd['要件']),
@@ -833,11 +880,11 @@
             }
             try {
               // --- ヘッダー定義 ---
-              const baseHeaders = ['no', 'category', '検索要件'];
+              const baseHeaders = ['行番号', '検索カテゴリ', '検索要件'];
               const prioritySubHeaders = [
                 '要件', '回答', '備考／補足', '変更区分', '意見', '変更後要件',
                 'Ｓｉｅｒ向けコメント', '工数', '社内向けコメント', 'id', 'カテゴリ',
-                'システム名', 'シート名', 'ファイル名', 'AI判定', 'AIスコア', 'AI理由',
+                'システム名', 'シート名', 'シート行番号', 'ファイル名', 'AI判定', 'AIスコア', 'AI理由',
               ];
 
               const headerRow1 = [...baseHeaders];
@@ -861,7 +908,7 @@
 
               // --- データ行の生成 ---
               const dataRows = this.import_datas.map(item => {
-                const row = [item.no, item.category, item.検索要件];
+                const row = [item.no, item.検索カテゴリ, item.検索要件];
                 for (let i = 1; i <= 3; i++) {
                   const wditem = item[`wditem${i}`];
                   row.push(
@@ -871,7 +918,7 @@
                     wditem?.['Ｓｉｅｒ向けコメント'] ?? null, wditem?.['工数'] ?? null,
                     wditem?.['社内向けコメント'] ?? null, wditem?.['id'] ?? null,
                     wditem?.['カテゴリ'] ?? null, wditem?.['システム名'] ?? null,
-                    wditem?.['シート名'] ?? null, wditem?.['ファイル名'] ?? null,
+                    wditem?.['シート名'] ?? null, wditem?.['シート行番号'] ?? null, wditem?.['ファイル名'] ?? null,
                     wditem?.ai_result?.judge ?? null, wditem?.ai_result?.score ?? null,
                     wditem?.ai_result?.reason ?? null
                   );
