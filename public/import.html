@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/vuetify@3.x/dist/vuetify.min.css" rel="stylesheet"/>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>仕様書検索</title>
+    <title>仕様書取込</title>
     <style>
       [v-cloak] {
         display: none;
@@ -147,10 +147,13 @@
                    height="40vh"
                    :headers="import_tbl_headers"
                    :items="import_datas"
-                   :items-per-page="-1"
+                   :items-per-page="20"
+                   :footer-props="{
+                     'items-per-page-options': [10, 20, 50, 100, -1],
+                     'items-per-page-text': '行数:'
+                   }"
                    no-data-text="データがありません"
                    item-key="no"
-                   hide-default-footer
                    fixed-header
                    :hide-default-header="false"
                    ref="dataTable">
@@ -288,15 +291,18 @@
               <v-card-title class="primary--text">ドキュメント一覧</v-card-title>
               <v-card-text>
                 <v-data-table
-                  height="30vh"
-                  :headers="documents_tbl_headers"
-                  :items="dc_documents"
-                  :items-per-page="-1"
-                  no-data-text="データがありません"
-                  item-key="document_id"
-                  hide-default-footer
-                  fixed-header
-                  :hide-default-header="false">
+                   height="30vh"
+                   :headers="documents_tbl_headers"
+                   :items="dc_documents"
+                   :items-per-page="20"
+                   :footer-props="{
+                     'items-per-page-options': [10, 20, 50, 100, -1],
+                     'items-per-page-text': '行数:'
+                   }"
+                   no-data-text="データがありません"
+                   item-key="document_id"
+                   fixed-header
+                   :hide-default-header="false">
 
                   <template v-slot:item.status="{ item }">
                     <v-chip
@@ -334,39 +340,43 @@
               </v-card-text>
             </v-card>
 
-            <!-- 削除確認ダイアログ -->
+            <!-- 削除確認ダイアログ (遅延ロード) -->
             <v-dialog v-model="showDeleteDialog" max-width="500px">
-              <v-card>
-                <v-card-title class="text-h5">確認</v-card-title>
-                <v-card-text>
-                  このドキュメントを削除してもよろしいですか？<br>
-                  <span v-if="documentToDelete">
-                    ID: {{ documentToDelete.document_id }}<br>
-                    {{ documentToDelete.filename || 'ドキュメント' }}
-                  </span>
-                </v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="blue-darken-1" variant="text" @click="showDeleteDialog = false">キャンセル</v-btn>
-                  <v-btn color="error" variant="elevated" @click="deleteDocument">削除する</v-btn>
-                </v-card-actions>
-              </v-card>
+              <template v-if="showDeleteDialog">
+                <v-card>
+                  <v-card-title class="text-h5">確認</v-card-title>
+                  <v-card-text>
+                    このドキュメントを削除してもよろしいですか？<br>
+                    <span v-if="documentToDelete">
+                      ID: {{ documentToDelete.document_id }}<br>
+                      {{ documentToDelete.filename || 'ドキュメント' }}
+                    </span>
+                  </v-card-text>
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="blue-darken-1" variant="text" @click="showDeleteDialog = false">キャンセル</v-btn>
+                    <v-btn color="error" variant="elevated" @click="deleteDocument">削除する</v-btn>
+                  </v-card-actions>
+                </v-card>
+              </template>
             </v-dialog>
 
-            <!-- アップロード確認ダイアログ -->
+            <!-- アップロード確認ダイアログ (遅延ロード) -->
             <v-dialog v-model="showUploadDialog" max-width="500px">
-              <v-card>
-                <v-card-title class="text-h5">確認</v-card-title>
-                <v-card-text>
-                  {{ import_datas.length }}件のデータをアップロードします。<br>
-                  続行しますか？
-                </v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="blue-darken-1" variant="text" @click="showUploadDialog = false">キャンセル</v-btn>
-                  <v-btn color="orange" variant="elevated" @click="executeUpload">アップロードする</v-btn>
-                </v-card-actions>
-              </v-card>
+              <template v-if="showUploadDialog">
+                <v-card>
+                  <v-card-title class="text-h5">確認</v-card-title>
+                  <v-card-text>
+                    {{ import_datas.length }}件のデータをアップロードします。<br>
+                    続行しますか？
+                  </v-card-text>
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="blue-darken-1" variant="text" @click="showUploadDialog = false">キャンセル</v-btn>
+                    <v-btn color="orange" variant="elevated" @click="executeUpload">アップロードする</v-btn>
+                  </v-card-actions>
+                </v-card>
+              </template>
             </v-dialog>
 
           </v-container>
@@ -542,7 +552,10 @@
 
           async confirmDeleteDocument(document) {
             this.documentToDelete = document
-            this.showDeleteDialog = true
+            // 少し遅延させてUIスレッドを解放してからダイアログを表示
+            setTimeout(() => {
+              this.showDeleteDialog = true
+            }, 10)
           },
 
           async deleteDocument() {
@@ -788,8 +801,11 @@
               return;
             }
 
-            // 確認ダイアログ表示（Vuetifyのv-dialogを使用）
-            this.showUploadDialog = true;
+            // 少し遅延させてUIスレッドを解放してからダイアログを表示
+            setTimeout(() => {
+              // 確認ダイアログ表示（Vuetifyのv-dialogを使用）
+              this.showUploadDialog = true;
+            }, 10);
           },
           
           async executeUpload() {
