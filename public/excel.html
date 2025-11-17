@@ -882,9 +882,9 @@
               // --- ヘッダー定義 ---
               const baseHeaders = ['行番号', '検索カテゴリ', '検索要件'];
               const prioritySubHeaders = [
-                '要件', '回答', '備考／補足', '変更区分', '意見', '変更後要件',
-                'Ｓｉｅｒ向けコメント', '工数', '社内向けコメント', 'id', 'カテゴリ',
-                'システム名', 'シート名', 'シート行番号', 'ファイル名', 'AI判定', 'AIスコア', 'AI理由',
+                'カテゴリ', '要件', '回答', '備考／補足', '変更区分', '意見', '変更後要件',
+                'Ｓｉｅｒ向けコメント', '工数', '社内向けコメント',
+                'シート名', 'シート行番号', 'ファイル名', 'AI判定', 'AIスコア', 'AI理由',
               ];
 
               const headerRow1 = [...baseHeaders];
@@ -908,19 +908,15 @@
 
               // --- データ行の生成 ---
               const dataRows = this.import_datas.map(item => {
-                const row = [item.no, item.検索カテゴリ, item.検索要件];
+                const row = [item.行番号, item.検索カテゴリ, item.検索要件];
                 for (let i = 1; i <= 3; i++) {
                   const wditem = item[`wditem${i}`];
                   row.push(
-                    wditem?.['要件'] ?? null, wditem?.['回答'] ?? null,
-                    wditem?.['備考／補足'] ?? null, wditem?.['変更区分'] ?? null,
-                    wditem?.['意見'] ?? null, wditem?.['変更後要件'] ?? null,
-                    wditem?.['Ｓｉｅｒ向けコメント'] ?? null, wditem?.['工数'] ?? null,
-                    wditem?.['社内向けコメント'] ?? null, wditem?.['id'] ?? null,
-                    wditem?.['カテゴリ'] ?? null, wditem?.['システム名'] ?? null,
-                    wditem?.['シート名'] ?? null, wditem?.['シート行番号'] ?? null, wditem?.['ファイル名'] ?? null,
-                    wditem?.ai_result?.judge ?? null, wditem?.ai_result?.score ?? null,
-                    wditem?.ai_result?.reason ?? null
+                    wditem?.['カテゴリ'] ?? null, wditem?.['要件'] ?? null, wditem?.['回答'] ?? null, wditem?.['備考／補足'] ?? null,
+                    wditem?.['変更区分'] ?? null, wditem?.['意見'] ?? null, wditem?.['変更後要件'] ?? null,
+                    wditem?.['Ｓｉｅｒ向けコメント'] ?? null, wditem?.['工数'] ?? null, wditem?.['社内向けコメント'] ?? null,
+                    wditem?.['シート名'] ?? null, wditem?.['行番号'] ?? null, wditem?.['ファイル名'] ?? null,
+                    wditem?.ai_result?.judge ?? null, wditem?.ai_result?.score ?? null, wditem?.ai_result?.reason ?? null
                   );
                 }
                 return row;
