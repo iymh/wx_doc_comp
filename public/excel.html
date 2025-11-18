@@ -377,19 +377,19 @@
         <div v-else-if="displayType === 'judge'" class="display-content">
           <div class="pr-item color_pr1">
             <v-progress-circular v-if="item.wditem1 && item.wditem1.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-            <div v-else-if="item.wditem1 && item.wditem1.ai_result" :color="getChipColor(item.wditem1.ai_result.judge)">
+            <div v-else-if="item.wditem1 && item.wditem1.ai_result">
                 {{ item.wditem1.ai_result.judge }}
             </div>
           </div>
           <div class="pr-item color_pr2">
             <v-progress-circular v-if="item.wditem2 && item.wditem2.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-            <div v-if="item.wditem2 && item.wditem2.ai_result" :color="getChipColor(item.wditem2.ai_result.judge)">
+            <div v-if="item.wditem2 && item.wditem2.ai_result">
                 {{ item.wditem2.ai_result.judge }}
             </div>
           </div>
           <div class="pr-item color_pr3">
             <v-progress-circular v-if="item.wditem3 && item.wditem3.isLoading" indeterminate color="primary" size="20"></v-progress-circular>
-            <div v-if="item.wditem3 && item.wditem3.ai_result" :color="getChipColor(item.wditem3.ai_result.judge)">
+            <div v-if="item.wditem3 && item.wditem3.ai_result">
                 {{ item.wditem3.ai_result.judge }}
             </div>
           </div>
@@ -398,13 +398,13 @@
         <!-- Score Display -->
         <div v-else-if="displayType === 'score'" class="display-content">
           <div class="pr-item color_pr1">
-            <span v-if="item.wditem1 && item.wditem1.ai_result && item.wditem1.ai_result.score !== undefined">{{ item.wditem1.ai_result.score }}</span>
+            <span v-if="item.wditem1 && item.wditem1.ai_result && item.wditem1.ai_result.score">{{ item.wditem1.ai_result.score }}</span>
           </div>
           <div class="pr-item color_pr2">
-            <span v-if="item.wditem2 && item.wditem2.ai_result && item.wditem2.ai_result.score !== undefined">{{ item.wditem2.ai_result.score }}</span>
+            <span v-if="item.wditem2 && item.wditem2.ai_result && item.wditem2.ai_result.score">{{ item.wditem2.ai_result.score }}</span>
           </div>
           <div class="pr-item color_pr3">
-            <span v-if="item.wditem3 && item.wditem3.ai_result && item.wditem3.ai_result.score !== undefined">{{ item.wditem3.ai_result.score }}</span>
+            <span v-if="item.wditem3 && item.wditem3.ai_result && item.wditem3.ai_result.score">{{ item.wditem3.ai_result.score }}</span>
           </div>
         </div>
 
@@ -444,8 +444,9 @@
         },
         methods: {
          getChipColor(judge) {
-             if (judge === '○') return 'green';
-             if (judge === '×') return 'red';
+             if (judge === '高') return 'green';
+             if (judge === '中') return 'orange';
+             if (judge === '低') return 'red';
              return 'grey';
          }
        },

@@ -97,7 +97,8 @@
                 density="compact"
                 rows="1"
                 ref="nlq_combobox"
-                @update:search-input="handleSearchInput"
+                @keydown.enter="handleSearchInput(dc_inputnlq)"
+                @blur="handleSearchInput(dc_inputnlq)"
               ></v-combobox>
             </v-row>
 
@@ -158,6 +159,15 @@
                   <template v-slot:item="{ item }">
                     <div class="ma-2 elevation-3">
                       <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-green">検索一致度</div>
+                        <div class="flex-grow-1" v-if="item.result_metadata && item.result_metadata.confidence !== undefined">{{ Number((item.result_metadata.confidence * 100).toFixed(3)) }}%</div>
+                        <div class="flex-grow-1" v-else>-</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
+                        <div class="wdt10 text-info">カテゴリ</div>
+                        <div class="flex-grow-1" v-if="item.カテゴリ">{{ item.カテゴリ }}</div>
+                      </div>
+                      <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-info">要件</div>
                         <div class="flex-grow-1" v-if="item.要件">{{ item.要件 }}</div>
                       </div>
@@ -165,7 +175,6 @@
                         <div class="wdt10 text-info">回答</div>
                         <div class="flex-grow-1" v-if="item.回答">{{ item.回答 }}</div>
                       </div>
-
                       <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-info">備考／補足</div>
                         <div class="flex-grow-1" v-if="item['備考／補足']">{{ item['備考／補足'] }}</div>
@@ -196,15 +205,6 @@
                       </div>
 
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 text-info">カテゴリ</div>
-                        <div class="flex-grow-1" v-if="item.カテゴリ">{{ item.カテゴリ }}</div>
-                      </div>
-                      <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 text-info">システム名</div>
-                        <div class="flex-grow-1" v-if="item.システム名">{{ item.システム名 }}</div>
-                      </div>
-
-                      <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-info">ファイル名</div>
                         <div class="flex-grow-1" v-if="item.ファイル名">{{ item.ファイル名 }}</div>
                       </div>
@@ -214,21 +214,20 @@
                       </div>
                       <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-info">行番号</div>
-                        <div class="flex-grow-1" v-if="item.id">{{ item.id }}</div>
+                        <div class="flex-grow-1" v-if="item.行番号">{{ item.行番号 }}</div>
                       </div>
 
-                      <v-divider></v-divider>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 text-warning">judge</div>
+                        <div class="wdt10 text-warning">AI判定</div>
                         <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.judge">{{ item.ai_result.judge }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 text-warning">reason</div>
-                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.reason">{{ item.ai_result.reason }}</div>
+                        <div class="wdt10 text-warning">AIスコア</div>
+                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.score">{{ item.ai_result.score }}</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
-                        <div class="wdt10 text-warning">score</div>
-                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.score>=0 && item.ai_result.score<=100">{{ item.ai_result.score }}</div>
+                        <div class="wdt10 text-warning">AI理由</div>
+                        <div class="flex-grow-1" v-if="item.ai_result && item.ai_result.reason">{{ item.ai_result.reason }}</div>
                       </div>
 
                     </div>
@@ -306,12 +305,12 @@
         handleSearchInput(searchInput) {
           // searchInputがnullの場合（クリアボタン押下時など）を考慮
           const newQuery = searchInput || '';
-          
+
           // 既存のタイマーをクリア
           clearTimeout(this.debounceTimer);
 
           this.dc_inputnlq = newQuery;
-          
+
           // 入力値がある場合のみタイマーを設定
           if (newQuery) {
             this.debounceTimer = setTimeout(() => {
@@ -372,7 +371,6 @@
 
           try {
             const resultJson = await this.watsonAPIs.executeAutocomp(this.dc_inputnlq, currentParams);
-            console.log(resultJson);
             if (resultJson && resultJson.completions) {
               this.dc_inputnlq_items = resultJson.completions;
             }

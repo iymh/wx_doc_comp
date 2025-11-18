@@ -99,10 +99,10 @@ export class WatsonAPIs {
      * LLMに渡すプロンプトテンプレート
      */
     this.prompts = {
-      system: `# 命令\nあなたは、与えられた"[要件]"の項目が、"[検索する機能]"と一致するかを判定するAIです。\n以下の"# ルール"と"# 出力形式"に厳密に従い、判定結果を生成してください。\n\n# ルール\n1.  "[要件]"に含まれるJSONオブジェクトを評価します。\n2.  **"judge"**の値は、評価対象オブジェクトの**"回答"キーの値（◯または×）を最優先**とし、そのまま反映させます。\n3.  **"score"**の値は、"要件"と"[検索する機能]"の**文言の一致度**に応じて、0点（全く不一致）から100点（完全一致）までの点数で設定します。\n4.  "reason"には、"judge"が[要件]の"回答"に基づいていること、および"score"が文言の一致度に基づいていることの両方を簡潔に記述します。\n5.  全ての評価結果を、単一のJSONにまとめてください。\n\n# 最重要ルール\n-   **出力は、後述の"# 出力形式"に合致する単一で有効なJSONのみとしてください。**\n-   **出力は \`\`\`json  から始まり \`\`\` で終わること。**\n\n`,
+      system: `# 命令\nあなたは、与えられた"[要件]"の項目が、"[検索する機能]"と一致するかを判定するAIです。\n以下の"# ルール"と"# 出力形式"に厳密に従い、判定結果を生成してください。\n\n# ルール\n1.  "[要件]"に含まれるJSONオブジェクトを評価します。\n2.  **"judge"**の値は、評価対象オブジェクトの**"回答"キーの値（◯または×または△）を最優先**とし、そのまま反映させます。\n3.  **"score"**の値は、"要件"と"[検索する機能]"の**文言の一致度**に応じて、以下の基準で設定します：\n   - 一致度が70%以上：「高」\n   - 一致度が30%以上70%未満：「中」\n   - 一致度が30%未満：「低」\n4.  "reason"には、文言の一致度のパーセンテージと、それに基づく信頼度（高・中・低）を簡潔に記述します。\n5.  全ての評価結果を、単一のJSONにまとめてください。\n\n# 最重要ルール\n-   **出力は、後述の"# 出力形式"に合致する単一で有効なJSONのみとしてください。**\n-   **出力は \`\`\`json  から始まり \`\`\` で終わること。**\n\n`,
       search_item: "# 入力データ\n[検索する機能]: ",
       search_list: "[要件]:\n",
-      result_title: `# 出力形式 (JSONの例)\n{\n  "judge": "（〇または×）",\n  "score": 100,\n  "reason": "（判定および点数の根拠）"\n}\n\n[判定結果]:\n`
+      result_title: `# 出力形式 (JSONの例)\n{\n  "judge": "（〇または×または△）",\n  "score": "（高・中・低）",\n  "reason": "文言の一致度が○○%のため、信頼度は○○です"\n}\n\n[判定結果]:\n`
     };
   }
 
@@ -179,17 +179,18 @@ export class WatsonAPIs {
   async processAIJudgements(items, query, onProgress) {
     for (let i = 0; i < items.length; i++) {
       let item = { ...items[i] };
-      const wd_result = { 要件: item["要件"], 回答: item["回答"], システム名: item["システム名"], カテゴリ: item["カテゴリ"], id: item["id"], シート名: item["シート名"] };
+      const wd_result = { 要件: item["要件"], カテゴリ: item["カテゴリ"], 回答: item["回答"] };
       
       const llm_options = {
         modelname: this.config.llm.modelname,
-        prompt: `${this.prompts.system}${this.prompts.search_item}${query}\n\n${this.prompts.search_list}\n${JSON.stringify(wd_result)}${this.prompts.result_title}`,
+        prompt: `${this.prompts.system}${this.prompts.search_item}${query}\n\n${this.prompts.search_list}\n${JSON.stringify(wd_result)}\n\n${this.prompts.result_title}`,
         decoding_method: "greedy",
         min_new_tokens: 10,
         max_new_tokens: 300,
         stop_sequences: []
       };
-      
+      // console.log("SendPrompt: ", llm_options.prompt);
+
       const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.generate}`;
       const ret_text = await callApi("POST", apiUrl, llm_options);
 
