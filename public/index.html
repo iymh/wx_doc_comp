@@ -29,6 +29,7 @@
           <v-tabs v-model="tab" grow>
             <v-tab value="search">ドキュメント文言検索</v-tab>
             <v-tab value="excel">仕様書検索</v-tab>
+            <v-tab value="import">仕様書登録</v-tab>
             <v-tab value="llm">LLMテスト</v-tab>
           </v-tabs>
 
@@ -38,6 +39,9 @@
             </v-window-item>
             <v-window-item value="excel">
               <iframe src="excel.html"></iframe>
+            </v-window-item>
+            <v-window-item value="import">
+              <iframe src="import.html"></iframe>
             </v-window-item>
             <v-window-item value="llm">
               <iframe src="llm.html"></iframe>
