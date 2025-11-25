@@ -24,7 +24,8 @@ pip install -r requirements.txt
 pip install uvicorn fastapi python-dotenv langchain gunicorn
 
 # add IBM SDK
-pip install ibm-watsonx-ai langchain_ibm ibm-watson
+pip install ibm-watsonx-ai langchain_ibm ibm-watson ibm-code-engine-sdk
+
 ```
 
 
@@ -37,6 +38,70 @@ pip install ibm-watsonx-ai langchain_ibm ibm-watson
 
 
 ## CodeEngine へ デプロイ
+
+デプロイには、Pythonスクリプトを使用する自動化された方法と、IBM Cloudコンソールを使用する手動の方法の2通りがあります。
+
+### 方法A: Pythonスクリプトで自動デプロイ (推奨)
+
+Pythonスクリプト `deploy.py` を使用して、**GitHubのソースコードからビルドを行い**、アプリケーションをデプロイします。
+
+#### 1. 事前準備
+*   **IBM Cloud アカウント**: APIキーが必要です。
+*   **Code Engine プロジェクト**: 事前にコンソールまたはCLIで作成済みのプロジェクトが必要です（プロジェクトIDを使用します）。
+*   **レジストリシークレット**: ビルドしたイメージを保存するために、Code Engineプロジェクト内にレジストリシークレットを作成しておく必要があります（例: `ce-registry-secret`）。
+
+#### 2. 設定ファイルの準備
+
+デプロイ設定は `ce_config.json` で管理し、アプリケーションの環境変数は `.env` で管理します。
+
+**A. デプロイ設定 (`ce_config.json`)**
+
+`ce_config.json.sample` をコピーして `ce_config.json` を作成し、値を設定してください。
+
+```bash
+cp ce_config.json.sample ce_config.json
+```
+
+`ce_config.json` の内容:
+```json
+{
+    "IBM_REGION": "us-south",
+    "CE_PROJECT_ID": "YOUR_PROJECT_GUID",
+    "CE_APP_NAME": "wx-doc-comp-app",
+    "CE_APP_PORT": 8000,
+    "CE_MIN_INSTANCES": 1,
+    "BUILD_CONFIG": {
+        "GIT_REPO_URL": "https://github.com/YOUR_ORG/YOUR_REPO",
+        "GIT_BRANCH": "main",
+        "IMAGE_URL": "us.icr.io/namespace/image:tag",
+        "REGISTRY_SECRET_NAME": "your-registry-secret"
+    }
+}
+```
+※ `API_KEY` もこのファイルに記述可能ですが、セキュリティのため `.env` (または環境変数) に設定することを推奨します。
+
+**B. アプリケーション環境変数 (`.env`)**
+
+`.env.sample` をコピーして `.env` を作成し、Watsonx.ai などのAPIキーを設定してください。これらはデプロイされたアプリに環境変数として渡されます。
+
+```bash
+cp .env.sample .env
+```
+
+### 3. デプロイの実行
+
+以下のコマンドを実行すると、ソースコードのビルドからデプロイまでが自動で行われます。
+
+```bash
+python deploy.py
+```
+
+ビルドをスキップしてデプロイのみ行う場合（コード変更がない場合など）:
+```bash
+python deploy.py --skip-build
+```
+### 方法B: コンソールから手動デプロイ
+
   1. Code Engineプロジェクトの概要ページで アプリケーションの作成 をクリックします。
   2. ソース・コード を選択し、ビルド詳細の指定 をクリックします。
   3. ソース タブで以下の情報を入力します。
@@ -56,6 +121,7 @@ pip install ibm-watsonx-ai langchain_ibm ibm-watson
      * デフォルトは8000　
   8. 最後にデプロイの実行をクリックして開始します。
   9. デプロイが成功したら アプリケーションのURL をブラウザで開く。
+
 
 ## 開発ツール
 ### ESLint

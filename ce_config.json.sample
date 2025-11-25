@@ -1,0 +1,13 @@
+{
+    "IBM_REGION": "us-south",
+    "CE_PROJECT_ID": "YOUR_CE_PROJECT_GUID",
+    "CE_APP_NAME": "wx-doc-comp-app",
+    "CE_APP_PORT": 8000,
+    "CE_MIN_INSTANCES": 1,
+    "BUILD_CONFIG": {
+        "GIT_REPO_URL": "https://github.com/iymh/wx_doc_comp",
+        "GIT_BRANCH": "main",
+        "IMAGE_URL": "icr.io/namespace/image:tag",
+        "REGISTRY_SECRET_NAME": "ce-registry-secret"
+    }
+}

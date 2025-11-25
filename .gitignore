@@ -184,3 +184,4 @@ package-lock.json
 memo.md
 dummy
 /.ssh
+ce_config.json
