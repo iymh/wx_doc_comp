@@ -40,6 +40,14 @@
       font-weight: bold;
       color: red;
     }
+    .text-gray {
+      color: gray !important;
+    }
+    .text-gray .text-green,
+    .text-gray .text-info,
+    .text-gray .text-warning {
+      color: gray !important;
+    }
   </style>
 </head>
 
@@ -113,12 +121,31 @@
                 v-model="dc_collections_selected"
                 return-object
                 hide-details
+                class="mr-4"
               ></v-select>
                 <!-- multiple -->
+
+              <div class="wdt12 mr-4">
+                <div class="text-caption">検索一致度閾値</div>
+                <v-slider
+                  v-model="confidenceThreshold"
+                  min="0"
+                  max="100"
+                  step="1"
+                  hide-details
+                  density="compact"
+                  thumb-label
+                >
+                  <template v-slot:thumb-label="{ modelValue }">
+                    {{ modelValue }}%
+                  </template>
+                </v-slider>
+              </div>
 
               <v-btn 
                 color="primary"
                 icon elevation="1"
+                :disabled="!dc_inputnlq || dc_inputnlq.length === 0"
                 @click="sendQuery()">
                 <v-icon>mdi-card-search-outline</v-icon>
               </v-btn>
@@ -140,6 +167,7 @@
               color="warning"
               icon elevation="1"
               :loading="llmLoading"
+              :disabled="!dc_outputjsons || dc_outputjsons.length === 0"
               @click="onSendAIJudgeBtn()">
               <v-icon>mdi-robot</v-icon>
             </v-btn>
@@ -157,7 +185,7 @@
                   hide-default-footer
                 >
                   <template v-slot:item="{ item }">
-                    <div class="ma-2 elevation-3">
+                    <div class="ma-2 elevation-3" :class="{ 'bg-grey-lighten-1': item.result_metadata && item.result_metadata.confidence < (confidenceThreshold / 100) }">
                       <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-green">検索一致度</div>
                         <div class="flex-grow-1" v-if="item.result_metadata && item.result_metadata.confidence !== undefined">{{ Number((item.result_metadata.confidence * 100).toFixed(3)) }}%</div>
@@ -286,6 +314,7 @@
           dc_inputnlq_items:[],
           dc_outputjsons: [],
           wx_result: {},
+          confidenceThreshold: 0.0,
         }
       },
 

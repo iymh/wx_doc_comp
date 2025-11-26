@@ -140,7 +140,24 @@
 
               <div v-if="import_count > 0">
                 <div v-if="!isBatchRunning">
-                  <div class="d-flex justify-end mt-4">
+                  <div class="d-flex justify-end mt-4 align-center">
+                    <div class="wdt12 mr-4">
+                      <div class="text-caption">検索一致度閾値</div>
+                      <v-slider
+                        v-model="confidenceThreshold"
+                        min="0"
+                        max="100"
+                        step="1"
+                        hide-details
+                        density="compact"
+                        thumb-label
+                      >
+                        <template v-slot:thumb-label="{ modelValue }">
+                          {{ modelValue }}%
+                        </template>
+                      </v-slider>
+                    </div>
+
                     <v-switch
                       v-model="is_judge"
                       label="AI判定を実行"
@@ -484,6 +501,7 @@
           dc_paramjson: JSON.stringify(watsonAPIs.defaultDiscoveryParams, null, 2),
           dc_collections: [],
           dc_collections_selected: [],
+          confidenceThreshold: 50.0,
 
           is_judge: true,
 
@@ -819,7 +837,15 @@
                     item.検索要件,
                     currentParams
                   )
-                  const wd_results = resultWDJson && resultWDJson.results ? resultWDJson.results.slice(0, 3) : []
+                  console.log("WD Search Result: ", resultWDJson);
+                  let wd_results = [];
+                  if (resultWDJson && resultWDJson.results) {
+                    // 閾値でフィルタリング
+                    wd_results = resultWDJson.results.filter(res => {
+                      return res.result_metadata && res.result_metadata.confidence >= (this.confidenceThreshold / 100);
+                    });
+                    wd_results = wd_results.slice(0, 3);
+                  }
 
                   // バッチ処理して一度に更新する準備
                   const updatedItems = {};
