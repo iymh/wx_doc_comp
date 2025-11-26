@@ -583,6 +583,16 @@
         },
 
         methods: {
+          getItemConfidence(item) {
+            if (item.document_passages && 
+                item.document_passages.length > 0 && 
+                item.document_passages[0].answers && 
+                item.document_passages[0].answers.length > 0) {
+              return item.document_passages[0].answers[0].confidence;
+            }
+            return 0;
+          },
+
           showToast(msg, type = 'info') {
              this.toast.text = msg
              this.toast.type = type
@@ -842,7 +852,7 @@
                   if (resultWDJson && resultWDJson.results) {
                     // 閾値でフィルタリング
                     wd_results = resultWDJson.results.filter(res => {
-                      return res.result_metadata && res.result_metadata.confidence >= (this.confidenceThreshold / 100);
+                      return this.getItemConfidence(res) >= (this.confidenceThreshold / 100);
                     });
                     wd_results = wd_results.slice(0, 3);
                   }

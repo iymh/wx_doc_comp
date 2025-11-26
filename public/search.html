@@ -185,10 +185,10 @@
                   hide-default-footer
                 >
                   <template v-slot:item="{ item }">
-                    <div class="ma-2 elevation-3" :class="{ 'bg-grey-lighten-1': item.result_metadata && item.result_metadata.confidence < (confidenceThreshold / 100) }">
+                    <div class="ma-2 elevation-3" :class="{ 'bg-grey-lighten-1': getItemConfidence(item) < (confidenceThreshold / 100) }">
                       <div class="d-flex align-center elevation-1">
                         <div class="wdt10 text-green">検索一致度</div>
-                        <div class="flex-grow-1" v-if="item.result_metadata && item.result_metadata.confidence !== undefined">{{ Number((item.result_metadata.confidence * 100).toFixed(3)) }}%</div>
+                        <div class="flex-grow-1" v-if="getItemConfidence(item) > 0">{{ Number((getItemConfidence(item) * 100).toFixed(3)) }}%</div>
                         <div class="flex-grow-1" v-else>-</div>
                       </div>
                       <div class="d-flex align-center elevation-1">
@@ -432,6 +432,16 @@
           }
         },
         
+        getItemConfidence(item) {
+          if (item.document_passages && 
+              item.document_passages.length > 0 && 
+              item.document_passages[0].answers && 
+              item.document_passages[0].answers.length > 0) {
+            return item.document_passages[0].answers[0].confidence;
+          }
+          return 0;
+        },
+
         async init() {
           await this.listCollections();
           this.dc_collections_selected = this.dc_collections[0];

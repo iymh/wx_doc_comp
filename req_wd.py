@@ -53,11 +53,28 @@ def call_wdsearch(params):
     # 必須パラメータのチェック
     check_required_params(params, ["collection_ids", "count", "natural_language_query"])
 
+    # 要件とカテゴリのみを検索対象にするためにpassagesを使用
+    # paramsからpassagesを取得、なければデフォルト設定
+    passages_config = params.get("passages")
+    if not passages_config:
+        passages_config = {
+            "enabled": True,
+            "fields": ["要件", "カテゴリ"],
+            "find_answers": True,
+            "per_document": True,
+            "max_per_document": 1,
+            "count": params["count"]
+        }
+    else:
+        # countはparamsのcountに合わせる
+        passages_config["count"] = params["count"]
+
     ret = discovery.query(
         project_id = prj_id,
         collection_ids = params["collection_ids"],
         count = params["count"],
-        natural_language_query = params["natural_language_query"]
+        natural_language_query = params["natural_language_query"],
+        passages = passages_config
     ).get_result()
     logger.info(ret)
 

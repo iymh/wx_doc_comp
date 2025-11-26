@@ -89,7 +89,7 @@ export class WatsonAPIs {
     this.defaultDiscoveryParams = {
       collection_ids: [],
       filter: "",
-      passages: { enabled: true, find_answers: true, per_document: true, fields: [] },
+      passages: { enabled: true, find_answers: true, per_document: true, fields: ["要件", "カテゴリ"] },
       count: 3,
       aggregation: "",
       _return: [],
