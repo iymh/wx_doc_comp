@@ -41,6 +41,7 @@ GIT_REPO_URL = build_config.get("GIT_REPO_URL") or os.getenv("GIT_REPO_URL")
 GIT_BRANCH = build_config.get("GIT_BRANCH") or os.getenv("GIT_BRANCH", "main")
 IMAGE_URL = build_config.get("IMAGE_URL") or os.getenv("IMAGE_URL")
 REGISTRY_SECRET_NAME = build_config.get("REGISTRY_SECRET_NAME") or os.getenv("REGISTRY_SECRET_NAME")
+STRATEGY_SIZE = build_config.get("STRATEGY_SIZE", "medium")
 
 if not API_KEY:
     print("Error: API_KEY is not set (check ce_config.json or .env).")
@@ -62,6 +63,7 @@ def main():
     print(f"Target Image: {IMAGE_URL}")
     print(f"App Port: {APP_PORT}")
     print(f"Min Instances: {APP_MIN_INSTANCES}")
+    print(f"Build Strategy Size: {STRATEGY_SIZE}")
 
     # Authenticate
     authenticator = IAMAuthenticator(API_KEY)
@@ -92,7 +94,8 @@ def main():
                 'source_revision': GIT_BRANCH,
                 'output_image': IMAGE_URL,
                 'output_secret': REGISTRY_SECRET_NAME,
-                'strategy_type': 'dockerfile'
+                'strategy_type': 'dockerfile',
+                'strategy_size': STRATEGY_SIZE
             }
             
             ce_client.update_build(
@@ -112,7 +115,8 @@ def main():
                     source_revision=GIT_BRANCH,
                     output_image=IMAGE_URL,
                     output_secret=REGISTRY_SECRET_NAME,
-                    strategy_type="dockerfile"
+                    strategy_type="dockerfile",
+                    strategy_size=STRATEGY_SIZE
                 )
                 print("Build definition created.")
             else:
@@ -131,6 +135,7 @@ def main():
             print(f"Build Run '{build_run_name}' submitted. Waiting for completion...")
             
             # Poll for completion
+            built_image_digest = None
             while True:
                 status_response = ce_client.get_build_run(project_id=PROJECT_ID, name=build_run_name).get_result()
                 print(f"DEBUG: Status response type: {type(status_response)}")
@@ -144,6 +149,7 @@ def main():
                     if isinstance(status_field, dict):
                         state = status_field.get('condition', 'Unknown')
                         reason = status_field.get('reason', 'Unknown')
+                        built_image_digest = status_field.get('output_digest')
                     elif isinstance(status_field, str):
                         state = status_field
                         reason = 'See status string'
@@ -159,6 +165,7 @@ def main():
                         if isinstance(status_dict, dict):
                             state = status_dict.get('status', {}).get('condition', 'Unknown')
                             reason = status_dict.get('status', {}).get('reason', 'Unknown')
+                            built_image_digest = status_dict.get('status', {}).get('output_digest')
                     except json.JSONDecodeError:
                         state = str(status_response) # Treat the string as the state itself if not JSON
                 else:
@@ -168,6 +175,8 @@ def main():
                 
                 if state.lower() == 'succeeded':
                     print("Build completed successfully!")
+                    if built_image_digest:
+                        print(f"Build Output Digest: {built_image_digest}")
                     break
                 elif state.lower() in ['failed', 'false']: 
                     print(f"Build failed. Reason: {reason}")
@@ -180,10 +189,55 @@ def main():
             sys.exit(1)
     else:
         print("Skipping build steps as requested.")
+        # Try to find the latest successful build run to get the digest
+        print("Fetching latest successful build run to determine image digest...")
+        built_image_digest = None
+        try:
+            build_name = f"{APP_NAME}-build"
+            runs_response = ce_client.list_build_runs(
+                project_id=PROJECT_ID, 
+                build_name=build_name, 
+                limit=10
+            ).get_result()
+            
+            runs = runs_response.get('build_runs', [])
+            
+            # Sort by created_at descending just in case
+            runs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            
+            for run in runs:
+                # Check status string
+                status = run.get('status', '').lower()
+                if status == 'succeeded':
+                    # Digest is in status_details
+                    status_details = run.get('status_details', {})
+                    built_image_digest = status_details.get('output_digest')
+                    
+                    if built_image_digest:
+                        print(f"Found latest successful build run: {run.get('name')}")
+                        print(f"Build Output Digest: {built_image_digest}")
+                        break
+            
+            if not built_image_digest:
+                print("Warning: Could not find a recent successful build run with a digest. Using 'latest' tag.")
+                
+        except ApiException as e:
+            print(f"Warning: Failed to list build runs: {e}")
+            built_image_digest = None
 
     # 3. Deploy App
     print(f"\n[3/3] Deploying Application '{APP_NAME}'...")
     
+    # Determine Image Reference to use
+    target_image_ref = IMAGE_URL
+    if built_image_digest:
+        # If we have a digest, append it to ensure we deploy exactly what was built
+        # Format: repo/image:tag@sha256:digest
+        target_image_ref = f"{IMAGE_URL}@{built_image_digest}"
+        print(f"Using specific image reference with digest: {target_image_ref}")
+    else:
+        print(f"Using image reference: {target_image_ref}")
+
     # Prepare env vars
     env_vars_to_pass = {}
     if os.path.exists(".env"):
@@ -211,7 +265,7 @@ def main():
             print("Updating existing application...")
             
             app_patch = {
-                'image_reference': IMAGE_URL,
+                'image_reference': target_image_ref,
                 'run_env_variables': env_list,
                 'image_secret': REGISTRY_SECRET_NAME,
                 'image_port': APP_PORT,
@@ -230,7 +284,7 @@ def main():
                 ce_client.create_app(
                     project_id=PROJECT_ID,
                     name=APP_NAME,
-                    image_reference=IMAGE_URL,
+                    image_reference=target_image_ref,
                     run_env_variables=env_list,
                     image_secret=REGISTRY_SECRET_NAME,
                     image_port=APP_PORT,

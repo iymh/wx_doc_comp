@@ -8,6 +8,7 @@
         "GIT_REPO_URL": "https://github.com/iymh/wx_doc_comp",
         "GIT_BRANCH": "main",
         "IMAGE_URL": "icr.io/namespace/image:tag",
-        "REGISTRY_SECRET_NAME": "ce-registry-secret"
+        "REGISTRY_SECRET_NAME": "ce-registry-secret",
+        "STRATEGY_SIZE": "medium"
     }
 }
