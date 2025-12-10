@@ -149,6 +149,7 @@ def main():
                     if isinstance(status_field, dict):
                         state = status_field.get('condition', 'Unknown')
                         reason = status_field.get('reason', 'Unknown')
+                        # Check recursively just in case
                         built_image_digest = status_field.get('output_digest')
                     elif isinstance(status_field, str):
                         state = status_field
@@ -156,6 +157,13 @@ def main():
                     else:
                         state = 'Unknown'
                         reason = f"Unexpected status field type: {type(status_field)}"
+                    
+                    # Correctly look for status_details in the root response
+                    if 'status_details' in status_response:
+                        details = status_response.get('status_details', {})
+                        if isinstance(details, dict):
+                            built_image_digest = details.get('output_digest')
+                    
                 elif isinstance(status_response, str):
                     # If the SDK returns a raw string, we might need to parse it or it might be just the status?
                     # Let's print it to be sure in the logs
