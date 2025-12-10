@@ -21,10 +21,10 @@ async function callApi(method, apiUrl, params, timeout = 15000) {
     method: method,
     headers: { "Content-Type": "application/json" },
     // fetchにsignalを渡して中断できるようにする
-    signal: controller.signal 
+    signal: controller.signal,
   };
-  
-  if (params && method.toUpperCase() !== 'GET') {
+
+  if (params && method.toUpperCase() !== "GET") {
     options.body = JSON.stringify(params);
   }
 
@@ -32,11 +32,15 @@ async function callApi(method, apiUrl, params, timeout = 15000) {
     const response = await fetch(apiUrl, options);
     if (!response.ok) throw new Error(`API call failed: ${response.status}`);
     const contentType = response.headers.get("content-type");
-    return contentType?.includes("application/json") ? await response.json() : await response.text();
+    return contentType?.includes("application/json")
+      ? await response.json()
+      : await response.text();
   } catch (error) {
     // タイムアウトによる中断の場合、エラー名が 'AbortError' になる
-    if (error.name === 'AbortError') {
-      console.error(`API通信タイムアウト (${apiUrl}): ${timeout}msを超えました`);
+    if (error.name === "AbortError") {
+      console.error(
+        `API通信タイムアウト (${apiUrl}): ${timeout}msを超えました`
+      );
     } else {
       console.error(`API通信エラー (${apiUrl}):`, error);
     }
@@ -49,8 +53,11 @@ async function callApi(method, apiUrl, params, timeout = 15000) {
 
 function extractJson(text) {
   if (typeof text !== 'string') return null;
-  const match = text.match(/```json([\s\S]*?)```/);
-  return match ? match[1].trim() : null;
+  const matches = [...text.matchAll(/```json([\s\S]*?)```/g)];
+  if (matches.length > 0) {
+    return matches[matches.length - 1][1].trim();
+  }
+  return null;
 }
 
 // --- メインクラス (外部から利用) ---
@@ -74,13 +81,13 @@ export class WatsonAPIs {
           listdocuments: "wdlistdocuments",
           deletedocument: "wddeletedocument",
           adddocument: "wdadddocument",
-          getdocument: "wdgetdocument"
-        }
+          getdocument: "wdgetdocument",
+        },
       },
       llm: {
-        modelname: "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
+        modelname: "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
         // modelname: "mistralai/mistral-medium-2505"
-      }
+      },
     };
 
     /**
@@ -89,7 +96,12 @@ export class WatsonAPIs {
     this.defaultDiscoveryParams = {
       collection_ids: [],
       filter: "",
-      passages: { enabled: true, find_answers: true, per_document: true, fields: ["要件", "カテゴリ"] },
+      passages: {
+        enabled: true,
+        find_answers: true,
+        per_document: true,
+        fields: ["要件", "カテゴリ"],
+      },
       count: 3,
       aggregation: "",
       _return: [],
@@ -99,10 +111,10 @@ export class WatsonAPIs {
      * LLMに渡すプロンプトテンプレート
      */
     this.prompts = {
-      system: `# 命令\nあなたは、与えられた"[要件]"の項目が、"[検索する機能]"と一致するかを判定するAIです。\n以下の"# ルール"と"# 出力形式"に厳密に従い、判定結果を生成してください。\n\n# ルール\n1.  "[要件]"に含まれるJSONオブジェクトを評価します。\n2.  **"judge"**の値は、評価対象オブジェクトの**"回答"キーの値（◯または×または△）を最優先**とし、そのまま反映させます。\n3.  **"score"**の値は、"要件"と"[検索する機能]"の**文言の一致度**に応じて、以下の基準で設定します：\n   - 一致度が70%以上：「高」\n   - 一致度が30%以上70%未満：「中」\n   - 一致度が30%未満：「低」\n4.  "reason"には、文言の一致度のパーセンテージと、それに基づく信頼度（高・中・低）を簡潔に記述します。\n5.  全ての評価結果を、単一のJSONにまとめてください。\n\n# 最重要ルール\n-   **出力は、後述の"# 出力形式"に合致する単一で有効なJSONのみとしてください。**\n-   **出力は \`\`\`json  から始まり \`\`\` で終わること。**\n\n`,
+      system: `\n\n# 命令\nあなたは、与えられた"[要件]"の項目が、"[検索する機能]"と一致するかを判定するAIです。\n以下の"# ルール"と"# 出力形式"に厳密に従い、判定結果を生成してください。\n\n# ルール\n1.  "[要件]"に含まれるJSONオブジェクトを評価します。\n2.  **"judge"**の値は、評価対象オブジェクトの**"回答"キーの値（◯または×または△）を最優先**とし、そのまま反映させます。\n3.  **"score"**の値は、"要件"と"[検索する機能]"の**文言の一致度**を**0から100の整数**で評価して設定してください。\n4.  "reason"には、文言の一致度と、その理由を簡潔に記述します。\n5.  全ての評価結果を、単一のJSONにまとめてください。\n\n# 出力形式 (JSONの例)\n{\n  "judge": "◯",\n  "score": 85,\n  "reason": "文言が大きく一致しており、信頼度は高いです"\n}\n\n# 最重要ルール\n-   **出力は、後述の"# 出力形式"に合致する単一で有効なJSONのみとしてください。**\n-   **出力は \`\`\`json  から始まり \`\`\` で終わること。**\n\n`,
       search_item: "# 入力データ\n[検索する機能]: ",
       search_list: "[要件]:\n",
-      result_title: `# 出力形式 (JSONの例)\n{\n  "judge": "（〇または×または△）",\n  "score": "（高・中・低）",\n  "reason": "文言の一致度が○○%のため、信頼度は○○です"\n}\n\n[判定結果]:\n`
+      result_title: `\n[判定結果]:\n`,
     };
   }
 
@@ -114,15 +126,20 @@ export class WatsonAPIs {
    * @param {boolean} [isParent=true] 親ドキュメントのみを取得するフラグ
    */
   async fetchDocuments(collectionId, isParent = true) {
-    console.log(`fetchDocuments 呼び出し - collection_id: ${collectionId}, is_parent: ${isParent}`);
+    console.log(
+      `fetchDocuments 呼び出し - collection_id: ${collectionId}, is_parent: ${isParent}`
+    );
     const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.listdocuments}`;
     const params = {
       collection_id: collectionId,
-      is_parent: isParent
+      is_parent: isParent,
     };
     console.log("リクエストパラメータ:", params);
     const data = await callApi("POST", apiUrl, params);
-    console.log("fetchDocuments 結果:", data ? `${data.documents?.length || 0}件取得` : 'データなし');
+    console.log(
+      "fetchDocuments 結果:",
+      data ? `${data.documents?.length || 0}件取得` : "データなし"
+    );
     return data ? data.documents : null;
   }
 
@@ -154,8 +171,12 @@ export class WatsonAPIs {
    */
   async executeQuery(naturalLanguageQuery, currentParams) {
     const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.search}`;
-    if (naturalLanguageQuery) naturalLanguageQuery = naturalLanguageQuery.replace(/\n/g, '');
-    const queryParams = { ...currentParams, natural_language_query: naturalLanguageQuery };
+    if (naturalLanguageQuery)
+      naturalLanguageQuery = naturalLanguageQuery.replace(/\n/g, "");
+    const queryParams = {
+      ...currentParams,
+      natural_language_query: naturalLanguageQuery,
+    };
     return await callApi("POST", apiUrl, queryParams);
   }
 
@@ -166,7 +187,7 @@ export class WatsonAPIs {
    */
   async executeAutocomp(prefix, currentParams) {
     const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.autocomp}`;
-    const queryParams = { ...currentParams, prefix: prefix.replace(/\n/g, '') };
+    const queryParams = { ...currentParams, prefix: prefix.replace(/\n/g, "") };
     return await callApi("POST", apiUrl, queryParams);
   }
 
@@ -179,22 +200,32 @@ export class WatsonAPIs {
   async processAIJudgements(items, query, onProgress) {
     for (let i = 0; i < items.length; i++) {
       let item = { ...items[i] };
-      const wd_result = { 要件: item["要件"], カテゴリ: item["カテゴリ"], 回答: item["回答"] };
-      
+      const wd_result = {
+        要件: item["要件"],
+        カテゴリ: item["カテゴリ"],
+        回答: item["回答"],
+      };
+
       const llm_options = {
         modelname: this.config.llm.modelname,
-        prompt: `${this.prompts.system}${this.prompts.search_item}${query}\n\n${this.prompts.search_list}\n${JSON.stringify(wd_result)}\n\n${this.prompts.result_title}`,
+        prompt: `${this.prompts.system}${this.prompts.search_item}${query}\n\n${
+          this.prompts.search_list
+        }\n${JSON.stringify(wd_result)}\n\n${this.prompts.result_title}`,
         decoding_method: "greedy",
         min_new_tokens: 10,
         max_new_tokens: 300,
-        stop_sequences: []
+        stop_sequences: [],
       };
       // console.log("SendPrompt: ", llm_options.prompt);
 
       const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.generate}`;
       const ret_text = await callApi("POST", apiUrl, llm_options);
 
-      let ai_result = { judge: 'Error', reason: 'AIからの応答がありません', score: 0 };
+      let ai_result = {
+        judge: "Error",
+        reason: "AIからの応答がありません",
+        score: 0,
+      };
       if (ret_text) {
         const extjson_str = extractJson(ret_text);
         if (extjson_str) {
@@ -202,13 +233,17 @@ export class WatsonAPIs {
             ai_result = JSON.parse(extjson_str);
           } catch (e) {
             console.error(e);
-            ai_result = { judge: 'Error', reason: 'AIの応答形式が不正です', score: 0 };
+            ai_result = {
+              judge: "Error",
+              reason: "AIの応答形式が不正です",
+              score: 0,
+            };
           }
         }
       }
       item.ai_result = ai_result;
 
-      if (typeof onProgress === 'function') {
+      if (typeof onProgress === "function") {
         console.log(item);
         onProgress(i, item);
       }
@@ -226,21 +261,21 @@ export class WatsonAPIs {
     console.log("addDocument メソッド呼び出し:", collectionId, filename);
     const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.adddocument}`;
     console.log("APIエンドポイント:", apiUrl);
-    
+
     if (!filename) {
       console.error("ファイル名が指定されていません");
       return null;
     }
-    
+
     // APIの要件に合わせてパラメータを設定
     const params = {
       collection_id: collectionId,
-      filename: filename,               // filenameは必須
-      file: JSON.stringify(documentData),  // データをJSON文字列に変換してfileパラメータに設定
-      file_content_type: 'application/json' // JSONデータであることを明示
+      filename: filename, // filenameは必須
+      file: JSON.stringify(documentData), // データをJSON文字列に変換してfileパラメータに設定
+      file_content_type: "application/json", // JSONデータであることを明示
     };
     console.log("リクエストパラメータ:", params);
-    
+
     try {
       const data = await callApi("POST", apiUrl, params);
       console.log("APIレスポンス:", data);
@@ -258,15 +293,17 @@ export class WatsonAPIs {
    * @returns {Promise<object|null>} ドキュメント情報またはnull（エラー時）
    */
   async getDocument(collectionId, documentId) {
-    console.log(`getDocument 呼び出し - collection_id: ${collectionId}, document_id: ${documentId}`);
+    console.log(
+      `getDocument 呼び出し - collection_id: ${collectionId}, document_id: ${documentId}`
+    );
     const apiUrl = `${this.config.api.baseUrl}${this.config.api.endpoints.getdocument}`;
-    
+
     const params = {
       collection_id: collectionId,
-      document_id: documentId
+      document_id: documentId,
     };
     console.log("リクエストパラメータ:", params);
-    
+
     try {
       const data = await callApi("POST", apiUrl, params);
       console.log("getDocument 結果:", data);
